@@ -41,9 +41,6 @@ async function waitForFinalization(connection, sig, { tries = 15, delay = 2000 }
 // 🧠 Main client component
 // ========================
 function TokenizeClient() {
-  // ✅ avoid SSR hydration errors (Netlify build-safe)
-  if (typeof window === "undefined") return null;
-
   const wallet = useWallet();
   const { connected, publicKey } = wallet;
 
@@ -53,6 +50,10 @@ function TokenizeClient() {
   const [mintStatus, setMintStatus] = useState("");
 
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
+
+  // ✅ Hydration guard comes AFTER hooks
+  if (typeof window === "undefined") return null;
+
 
   const handleTokenize = async () => {
     try {
