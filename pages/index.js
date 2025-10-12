@@ -11,57 +11,48 @@ import {
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection } from "@solana/web3.js";
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
 
-// ---- ENV (set these in .env.local on the frontend and in Render) ----
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL;           // e.g. Helius mainnet URL
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";   // your FastAPI base, e.g. https://api.yourdomain.com
-
-// Fallbacks (use only if env is missing; for prod you should provide RPC_URL)
+// ========================
+// ✅ Environment & defaults
+// ========================
+const RPC_URL =
+  process.env.NEXT_PUBLIC_RPC_URL || "https://rpc.helius.xyz/?api-key=YOUR_API_KEY";
+const API_BASE =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "https://tknzbackend.onrender.com";
 const FINALITY = "finalized";
 
-// Simple sleep
+// Helper: delay + confirmation polling
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// Poll for "finalized" with retries
-async function waitForFinalization(connection, signature, {
-  maxAttempts = 15,        // ~30s if 2s each
-  delayMs = 2000,
-} = {}) {
-  for (let i = 0; i < maxAttempts; i++) {
+async function waitForFinalization(connection, sig, { tries = 15, delay = 2000 } = {}) {
+  for (let i = 0; i < tries; i++) {
     try {
-      const { value } = await connection.getSignatureStatuses([signature]);
-      const status = value?.[0];
-      if (status?.confirmationStatus === "finalized") {
-        return { ok: true, status: "finalized" };
-      }
-    } catch (_) {
-      // ignore transient RPC errors and retry
-    }
-    await wait(delayMs);
+      const { value } = await connection.getSignatureStatuses([sig]);
+      const st = value?.[0];
+      if (st?.confirmationStatus === "finalized") return true;
+    } catch (_) {}
+    await wait(delay);
   }
-  return { ok: false, status: "timeout" };
+  return false;
 }
 
-// =======================
-// 🧠 Tokenize Client Component (PROD)
-// =======================
+// ========================
+// 🧠 Main client component
+// ========================
 function TokenizeClient() {
+  // ✅ avoid SSR hydration errors (Netlify build-safe)
+  if (typeof window === "undefined") return null;
+
   const wallet = useWallet();
   const { connected, publicKey } = wallet;
 
-  const [isReady, setIsReady] = useState(false);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [explorerUrl, setExplorerUrl] = useState("");
   const [mintStatus, setMintStatus] = useState("");
 
-  // IMPORTANT: use your private RPC (Helius/QuickNode/Alchemy)
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
-
-  useEffect(() => setIsReady(true), []);
-  if (!isReady) return null;
 
   const handleTokenize = async () => {
     try {
@@ -77,10 +68,9 @@ function TokenizeClient() {
       }
 
       setLoading(true);
-      setExplorerUrl("");
       setMintStatus("⏳ Uploading metadata to IPFS...");
 
-      // 1) Upload metadata to backend (Pinata/IPFS)
+      // 1️⃣ Upload metadata to backend
       const res = await fetch(`${API_BASE}/prepare-metadata`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,22 +80,21 @@ function TokenizeClient() {
         }),
       });
 
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(`Metadata API failed (${res.status}): ${msg}`);
-      }
-
+      if (!res.ok) throw new Error(`Metadata API failed: ${await res.text()}`);
       const { metadata_uri, trimmed_name } = await res.json();
       if (!metadata_uri || !trimmed_name)
         throw new Error("Invalid metadata response from backend.");
 
+      console.log("✅ Metadata uploaded:", metadata_uri);
       setMintStatus("🔗 Metadata ready, awaiting wallet approval...");
 
-      // 2) Initialize Metaplex SDK with Phantom signer
+      // 2️⃣ Initialize Metaplex SDK with Phantom
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
-      // 3) Mint immutable NFT (finalized confirmation flow)
+      // 3️⃣ Mint immutable NFT
+      console.log("🪙 Minting NFT...");
       setMintStatus("🪙 Minting NFT... please confirm in Phantom");
+
       const { response } = await mx.nfts().create({
         uri: metadata_uri,
         name: trimmed_name,
@@ -115,43 +104,31 @@ function TokenizeClient() {
 
       const sig = response.signature;
       const url = `https://explorer.solana.com/tx/${sig}?cluster=mainnet`;
-      setMintStatus("🔍 Waiting for finalization on Solana...");
-      // Short grace delay before we start polling (reduces “already processed” races)
+      console.log("🔍 Waiting for finalization...");
+
+      setMintStatus("⌛ Waiting for Solana finalization...");
       await wait(1800);
+      const finalized = await waitForFinalization(connection, sig);
 
-      // Manual confirmation loop for "finalized"
-      const { ok } = await waitForFinalization(connection, sig, {
-        maxAttempts: 15,
-        delayMs: 2000,
-      });
-
-      if (!ok) {
-        // Fallback: it may still be confirmed on a different RPC—treat as success and show Explorer.
-        console.warn("Confirmation polling timed out; showing Explorer link.");
-        setMintStatus("ℹ️ Submitted. If it doesn’t show yet, try again in a moment.");
-      } else {
+      if (finalized) {
         setMintStatus("✅ Finalized on Solana!");
+      } else {
+        setMintStatus(
+          "ℹ️ Submitted! If not visible yet, check again in a moment."
+        );
       }
 
       setExplorerUrl(url);
+      console.log("✅ Minted NFT:", url);
     } catch (err) {
       console.error("❌ Minting failed:", err);
-
       const msg = String(err?.message || err);
 
-      // Treat known duplicates as success
+      // Treat known race condition as success
       if (msg.includes("already been processed")) {
-        setMintStatus("✅ Transaction already confirmed on Solana!");
-        // We may not have the signature here; prompt user to check their wallet history.
-        alert("NFT minted successfully (duplicate TX ignored). Check your wallet/Explorer.");
+        setMintStatus("✅ Transaction already confirmed!");
+        alert("NFT minted successfully (duplicate TX ignored).");
         return;
-      }
-
-      // Surface logs if available
-      if (err.getLogs) {
-        try {
-          console.log("🔍 Transaction Logs:", await err.getLogs());
-        } catch {}
       }
 
       setMintStatus("❌ Minting failed.");
@@ -198,7 +175,7 @@ function TokenizeClient() {
           🧠 Tokenized Text
         </h1>
         <p style={{ color: "#aaa", marginTop: -6, textAlign: "center" }}>
-          Connect wallet, enter text, mint as an NFT on Solana.
+          Connect wallet, enter text, and mint an NFT on Solana.
         </p>
 
         <textarea
@@ -262,7 +239,7 @@ function TokenizeClient() {
 }
 
 // =======================
-// Prevent SSR hydration issues
+// ✅ Client hydration guard
 // =======================
 function TokenizeApp() {
   const [ready, setReady] = useState(false);
@@ -272,7 +249,7 @@ function TokenizeApp() {
 }
 
 // =======================
-// Export the page
+// ✅ Page export
 // =======================
 export default function HomePage() {
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
