@@ -116,8 +116,8 @@ function TokenizeClient() {
       setMintStatus("🔗 Metadata ready, building combined transaction...");
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
-      // ✅ Build NFT mint transaction (not send yet)
-      const { nft, response } = await mx
+      // Build the NFT creation as a transaction builder
+      const builder = await mx
         .nfts()
         .builders()
         .create({
@@ -134,8 +134,11 @@ function TokenizeClient() {
         lamports: 0.01 * LAMPORTS_PER_SOL,
       });
 
-      // ✅ Combine fee + mint instructions into one transaction
-      const transaction = new Transaction().add(feeInstruction, ...response.instructions);
+      // ✅ Build final transaction (fee + builder)
+      const transaction = new Transaction()
+        .add(feeInstruction)
+        .add(...builder.getInstructions());
+
 
       setMintStatus("🪙 Minting NFT... please confirm in your wallet");
       const sig = await sendTransaction(transaction, connection);
