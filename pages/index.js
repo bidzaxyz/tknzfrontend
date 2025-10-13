@@ -127,25 +127,26 @@ function TokenizeClient() {
           isMutable: false,
         });
 
-      // ✅ Create fee transfer instruction
+      // ✅ Create fee transfer instruction first
       const feeInstruction = SystemProgram.transfer({
         fromPubkey: publicKey,
         toPubkey: FEE_WALLET,
         lamports: 0.01 * LAMPORTS_PER_SOL,
       });
 
-      // ✅ Combine into one transaction
-      const transaction = new Transaction()
-        .add(feeInstruction)
-        .add(...builder.getInstructions());
+      // ✅ Prepend fee instruction to builder
+      builder.prependInstruction(feeInstruction);
 
-      // ✅ Set required metadata for wallet to process it
+      // ✅ Build final transaction correctly
+      const transaction = await builder.toTransaction(connection);
+
+      // ✅ Set payer and blockhash
       transaction.feePayer = publicKey;
       transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-      // ✅ Send transaction
       setMintStatus("🪙 Minting NFT... please confirm in your wallet");
       const sig = await sendTransaction(transaction, connection);
+
 
       setMintStatus("⌛ Waiting for Solana finalization...");
       const finalized = await waitForFinalization(connection, sig);
