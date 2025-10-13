@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Script from "next/script";
 import { useEffect, useMemo, useState } from "react";
 import {
   ConnectionProvider,
@@ -19,6 +20,7 @@ import {
   PublicKey,
   Keypair,
 } from "@solana/web3.js";
+
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
 import SiteFooter from "../components/SiteFooter";
 import GA from "../components/GA";
@@ -70,7 +72,11 @@ function TokenizeClient() {
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
 
   useEffect(() => {
+    document.body.style.overflow = "hidden";
     fetch(`${API_BASE}/gm`).catch(() => {});
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, []);
 
   const showToast = (msg) => {
@@ -128,25 +134,27 @@ function TokenizeClient() {
       });
       const mintTx = await builder.toTransaction(connection);
 
-      // --- c) Blockhash + fee payer
-      const { blockhash } = await connection.getLatestBlockhash();
-      feeTx.feePayer = publicKey;
-      mintTx.feePayer = publicKey;
-      feeTx.recentBlockhash = blockhash;
-      mintTx.recentBlockhash = blockhash;
+      // ✅ Ensure all Metaplex-generated keypairs sign this transaction
+// --- c) same blockhash + fee payer (set BEFORE signing)
+const { blockhash } = await connection.getLatestBlockhash();
+feeTx.feePayer = publicKey;
+mintTx.feePayer = publicKey;
+feeTx.recentBlockhash = blockhash;
+mintTx.recentBlockhash = blockhash;
 
-      // --- d) Partial sign with builder keypairs
-      const signers = builder.getSigners();
-      signers
-        .filter((s) => s?.secretKey)
-        .forEach((s) => {
-          try {
-            const kp = Keypair.fromSecretKey(s.secretKey);
-            mintTx.partialSign(kp);
-          } catch (e) {
-            console.warn("Failed to partialSign:", e);
-          }
-        });
+// ✅ Now safely partial sign
+const signers = builder.getSigners();
+signers
+  .filter((s) => s?.secretKey)
+  .forEach((s) => {
+    try {
+      const kp = Keypair.fromSecretKey(s.secretKey);
+      mintTx.partialSign(kp);
+    } catch (e) {
+      console.warn("Failed to partialSign:", e);
+    }
+  });
+
 
       // 3️⃣ One wallet popup to sign both
       setMintStatus("💸 Approve fee + mint in one step...");
@@ -169,7 +177,7 @@ function TokenizeClient() {
       setExplorerUrl(url);
       showToast("✅ NFT minted successfully!");
 
-      // ✅ Get mint address
+      // ✅ Safely get the mint address
       let createdMint = null;
       if (builder?.getContext && builder.getContext()?.mintAddress) {
         createdMint = builder.getContext().mintAddress;
@@ -215,25 +223,18 @@ function TokenizeClient() {
 
       <GA />
 
-      {/* 🌌 Responsive layout */}
       <div
         style={{
           fontFamily: "Inter, sans-serif",
           background: "#343541",
           color: "#fff",
-          minHeight: "100dvh", // ✅ mobile safe height
+          height: "100vh",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "space-between",
-          overflowX: "hidden",
-          overflowY: "auto", // ✅ scrolls on mobile only if needed
-          paddingTop: 40,
-          paddingBottom: 80, // ✅ footer safe area
-          boxSizing: "border-box",
+          justifyContent: "flex-start",
         }}
       >
-        {/* Main card */}
         <div
           style={{
             width: 360,
@@ -246,9 +247,10 @@ function TokenizeClient() {
             borderRadius: 12,
             padding: 20,
             boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+            marginTop: 100,
           }}
         >
-          <Link href="/" style={{ alignSelf: "flex-start" }}>
+          <Link href="/" style={{ display: "inline-block", alignSelf: "flex-start" }}>
             <img
               src="/images/TKNZlogo.png"
               alt="TKNZFUN Logo"
@@ -256,15 +258,14 @@ function TokenizeClient() {
                 width: 64,
                 height: 64,
                 borderRadius: "12px",
+                marginBottom: 4,
                 cursor: "pointer",
               }}
             />
           </Link>
-
           <div style={{ alignSelf: "flex-end" }}>
             <WalletMultiButton />
           </div>
-
           <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
             Tokenize Text on Solana
           </h1>
@@ -273,7 +274,7 @@ function TokenizeClient() {
           </p>
 
           <textarea
-            placeholder="Enter text to tokenize..."
+            placeholder="Enter text to tokenize... Maximum 32 characters will be shown in token name full text in description."
             value={text}
             onChange={(e) => setText(e.target.value)}
             style={{
@@ -283,7 +284,7 @@ function TokenizeClient() {
               borderRadius: 10,
               border: "1px solid #222",
               outline: "none",
-              resize: "none",
+              resize: "vertical",
               backgroundColor: "#161616",
               color: "#fff",
               fontSize: 14,
@@ -345,8 +346,14 @@ function TokenizeClient() {
           )}
         </div>
 
-        {/* 🦶 Always visible footer (scrolls into view on mobile if needed) */}
-        <div style={{ width: "100%", marginTop: 20 }}>
+        <div
+          style={{
+            width: "100%",
+            marginTop: "auto",
+            display: "block",
+            paddingBottom: 8,
+          }}
+        >
           <SiteFooter />
         </div>
       </div>
