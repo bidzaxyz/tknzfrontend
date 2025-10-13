@@ -324,6 +324,7 @@ export default function HomePage() {
       window._ethereumBackup = window.ethereum;
       delete window.ethereum;
     }
+    setReady(true); // <-- this was missing; enables render
     return () => {
       // Restore MetaMask when leaving page
       if (window._ethereumBackup) window.ethereum = window._ethereumBackup;
@@ -332,7 +333,7 @@ export default function HomePage() {
 
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
-  if (!ready) return null;
+  if (!ready) return null; // wait until cleanup done
 
   return (
     <ConnectionProvider endpoint={RPC_URL}>
@@ -344,4 +345,3 @@ export default function HomePage() {
     </ConnectionProvider>
   );
 }
-
