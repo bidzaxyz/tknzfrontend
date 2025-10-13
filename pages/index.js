@@ -315,7 +315,24 @@ function TokenizeApp() {
 }
 
 export default function HomePage() {
+  const [ready, setReady] = useState(false);
+
+  // ✅ Remove MetaMask from global scope before wallet modal loads
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.ethereum) {
+      // Backup then delete MetaMask injection
+      window._ethereumBackup = window.ethereum;
+      delete window.ethereum;
+    }
+    return () => {
+      // Restore MetaMask when leaving page
+      if (window._ethereumBackup) window.ethereum = window._ethereumBackup;
+    };
+  }, []);
+
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
+
+  if (!ready) return null;
 
   return (
     <ConnectionProvider endpoint={RPC_URL}>
@@ -327,3 +344,4 @@ export default function HomePage() {
     </ConnectionProvider>
   );
 }
+
