@@ -237,7 +237,28 @@ function TokenizeClient() {
           >
             {loading ? "Minting..." : "Tokenize"}
           </button>
-
+          <a
+          href="https://x.com/Bidzaxyz" // change to your handle
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            color: "#1DA1F2",
+            marginTop: 18,
+            textDecoration: "none",
+            fontSize: 14,
+          }}
+        >
+          <img
+            src="/images/twitter.svg" // place this icon file in /public/images/twitter.svg
+            alt="Twitter"
+            style={{ width: 18, height: 18 }}
+          />
+          <span>Follow @bidza_xyz</span>
+        </a>
           {mintStatus && (
             <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>
               {mintStatus}
