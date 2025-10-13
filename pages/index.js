@@ -23,6 +23,8 @@ import {
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
 import SiteFooter from "../components/SiteFooter";
 import GA from "../components/GA";
+import Link from "next/link";
+
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ||
