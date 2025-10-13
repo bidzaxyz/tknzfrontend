@@ -1,5 +1,5 @@
 import Head from "next/head";
-import Script from "next/script"; // ✅ Google Analytics support
+import Script from "next/script";
 import { useEffect, useMemo, useState } from "react";
 import {
   ConnectionProvider,
@@ -47,7 +47,6 @@ function TokenizeClient() {
 
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
 
-  // ✅ Wake backend on first load
   useEffect(() => {
     fetch(`${API_BASE}/gm`).catch(() => {});
   }, []);
@@ -69,7 +68,6 @@ function TokenizeClient() {
       setMintStatus("🤖 TKNZ robots are preparing blocks for the chain...");
       setExplorerUrl("");
 
-      // 1️⃣ Upload metadata (allow Render wake-up)
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 60000);
 
@@ -89,11 +87,8 @@ function TokenizeClient() {
         throw new Error("Invalid metadata response.");
 
       setMintStatus("🔗 Metadata ready, awaiting wallet approval...");
-
-      // 2️⃣ Initialize Metaplex SDK
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
-      // 3️⃣ Mint NFT
       setMintStatus("🪙 Minting NFT... please confirm in Phantom");
       const { response } = await mx.nfts().create({
         uri: metadata_uri,
@@ -138,7 +133,6 @@ function TokenizeClient() {
 
   return (
     <>
-      {/* ✅ Google Tag */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP"
         strategy="afterInteractive"
@@ -152,18 +146,21 @@ function TokenizeClient() {
         `}
       </Script>
 
-      {/* ✅ Main UI */}
+      {/* Outer wrapper with dark bluish background */}
       <div
         style={{
           fontFamily: "Inter, sans-serif",
           minHeight: "100vh",
-          background: "#0a0a0a",
+          background: "#343541",
           color: "#fff",
-          display: "grid",
-          placeItems: "center",
-          padding: 24,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "24px 0",
         }}
       >
+        {/* Center content */}
         <div
           style={{
             width: 360,
@@ -178,7 +175,6 @@ function TokenizeClient() {
             boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
           }}
         >
-          {/* ✅ Logo */}
           <img
             src="/images/TKNZlogo.png"
             alt="TKNZ Logo"
@@ -199,7 +195,7 @@ function TokenizeClient() {
             Tokenize Text on Solana
           </h1>
           <p style={{ color: "#aaa", marginTop: -6, textAlign: "center" }}>
-            Connect wallet, enter text, mint an NFT on Solana. 
+            Connect wallet, enter text, create a token of this text that lives on Solana forever. 
           </p>
 
           <textarea
@@ -237,28 +233,30 @@ function TokenizeClient() {
           >
             {loading ? "Minting..." : "Tokenize"}
           </button>
+
           <a
-          href="https://x.com/Bidzaxyz" // change to your handle
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            color: "#1DA1F2",
-            marginTop: 18,
-            textDecoration: "none",
-            fontSize: 14,
-          }}
-        >
-          <img
-            src="/images/twitter.svg" // place this icon file in /public/images/twitter.svg
-            alt="Twitter"
-            style={{ width: 18, height: 18 }}
-          />
-          <span>Follow @bidza_xyz</span>
-        </a>
+            href="https://x.com/Bidzaxyz"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              color: "#1DA1F2",
+              marginTop: 18,
+              textDecoration: "none",
+              fontSize: 14,
+            }}
+          >
+            <img
+              src="/images/twitter.svg"
+              alt="Twitter"
+              style={{ width: 18, height: 18 }}
+            />
+            <span>Follow @bidza_xyz</span>
+          </a>
+
           {mintStatus && (
             <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>
               {mintStatus}
@@ -279,6 +277,18 @@ function TokenizeClient() {
             </p>
           )}
         </div>
+
+        {/* Footer */}
+        <footer
+          style={{
+            textAlign: "center",
+            fontSize: 13,
+            color: "#888",
+            marginTop: 24,
+          }}
+        >
+          Copyright © TKNZ FUN
+        </footer>
       </div>
     </>
   );
