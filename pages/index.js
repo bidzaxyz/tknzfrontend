@@ -131,8 +131,17 @@ function TokenizeClient() {
     }
   };
 
-  return (
-    <>
+return (
+  <>
+      <Head>
+        <title>TKNZ — Tokenize Everything</title>
+        <meta name="title" content="TKNZ — Tokenize Everything" />
+        <meta
+          name="description"
+          content="Turn any text into an immutable Token on Solana blockchain."
+        />
+      </Head>
+
       {/* ✅ Google Tag */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP"
@@ -309,18 +318,15 @@ export default function HomePage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // ✅ Disable Metamask or any injected EVM wallet
-    if (window?.ethereum) {
-      try {
-        delete window.ethereum;
-        console.log("Removed injected EVM wallet.");
-      } catch {
-        // fallback if deletion fails
-        window.ethereum = undefined;
-      }
-    }
-    setReady(true);
+    // Remove only MetaMask from detected wallet list
+    const interval = setInterval(() => {
+      document
+        .querySelectorAll('button[data-wallet-name*="MetaMask" i]')
+        .forEach((el) => el.remove());
+    }, 500);
+    return () => clearInterval(interval);
   }, []);
+
 
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
