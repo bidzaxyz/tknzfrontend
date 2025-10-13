@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Script from "next/script"; // ✅ Google Analytics support
 import { useEffect, useMemo, useState } from "react";
 import {
   ConnectionProvider,
@@ -46,7 +47,7 @@ function TokenizeClient() {
 
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
 
-  // ✅ Wake Render backend immediately
+  // ✅ Wake backend on first load
   useEffect(() => {
     fetch(`${API_BASE}/gm`).catch(() => {});
   }, []);
@@ -68,7 +69,7 @@ function TokenizeClient() {
       setMintStatus("🤖 TKNZ robots are preparing blocks for the chain...");
       setExplorerUrl("");
 
-      // 1️⃣ Upload metadata with timeout (Render cold start)
+      // 1️⃣ Upload metadata (allow Render wake-up)
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 60000);
 
@@ -89,10 +90,10 @@ function TokenizeClient() {
 
       setMintStatus("🔗 Metadata ready, awaiting wallet approval...");
 
-      // 2️⃣ Initialize Metaplex SDK with Phantom signer
+      // 2️⃣ Initialize Metaplex SDK
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
-      // 3️⃣ Mint immutable NFT
+      // 3️⃣ Mint NFT
       setMintStatus("🪙 Minting NFT... please confirm in Phantom");
       const { response } = await mx.nfts().create({
         uri: metadata_uri,
@@ -137,16 +138,14 @@ function TokenizeClient() {
 
   return (
     <>
-      {/* ✅ SEO, OpenGraph, Twitter */}
+      {/* ✅ Meta + Google Analytics */}
       <Head>
         <title>TKNZ — Tokenize Everything</title>
         <meta name="title" content="TKNZ — Tokenize Everything" />
         <meta
           name="description"
-          content="Platform for fun tokenizations activity on Solana Blockchain. Tokenize any text into an immutable NFT on the Solana blockchain that will be there forever."
+          content="Platform for fun tokenizations on Solana Blockchain. Tokenize any text into an immutable NFT that will live forever."
         />
-
-        {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://tknz.bidza.xyz/" />
         <meta property="og:title" content="TKNZ — Tokenize Everything" />
@@ -155,8 +154,6 @@ function TokenizeClient() {
           content="Turn your words into on-chain collectibles. Free, immutable, and forever on Solana."
         />
         <meta property="og:image" content="/images/ogimage.png" />
-
-        {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content="https://tknz.bidza.xyz/" />
         <meta name="twitter:title" content="TKNZ — Tokenize Everything" />
@@ -165,10 +162,24 @@ function TokenizeClient() {
           content="Fun tokenizations platform that runs on Solana."
         />
         <meta name="twitter:image" content="/images/ogimage.png" />
-
         <link rel="icon" href="/images/TKNZlogo.png" />
       </Head>
 
+      {/* ✅ Google Tag */}
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP"
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-2GPFP7E7CP');
+        `}
+      </Script>
+
+      {/* ✅ Main UI */}
       <div
         style={{
           fontFamily: "Inter, sans-serif",
@@ -194,7 +205,7 @@ function TokenizeClient() {
             boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
           }}
         >
-          {/* ✅ Logo top-left */}
+          {/* ✅ Logo */}
           <img
             src="/images/TKNZlogo.png"
             alt="TKNZ Logo"
