@@ -116,36 +116,40 @@ function TokenizeClient() {
       setMintStatus("🔗 Metadata ready, building combined transaction...");
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
-      // Build the NFT creation builder
-      const builder = await mx
-        .nfts()
-        .builders()
-        .create({
-          uri: metadata_uri,
-          name: trimmed_name,
-          sellerFeeBasisPoints: 0,
-          isMutable: false,
-        });
+      // ✅ Create the fee transfer instruction first
+const feeInstruction = SystemProgram.transfer({
+  fromPubkey: publicKey,
+  toPubkey: FEE_WALLET,
+  lamports: 0.01 * LAMPORTS_PER_SOL,
+});
 
-      // ✅ Create fee transfer instruction first
-      const feeInstruction = SystemProgram.transfer({
-        fromPubkey: publicKey,
-        toPubkey: FEE_WALLET,
-        lamports: 0.01 * LAMPORTS_PER_SOL,
-      });
+// ✅ Build the NFT mint builder
+const builder = await mx
+  .nfts()
+  .builders()
+  .create({
+    uri: metadata_uri,
+    name: trimmed_name,
+    sellerFeeBasisPoints: 0,
+    isMutable: false,
+  });
 
-      // ✅ Prepend fee instruction to builder
-      builder.prependInstruction(feeInstruction);
+// ✅ Turn builder into a transaction
+const mintTx = await builder.toTransaction(connection);
 
-      // ✅ Build final transaction correctly
-      const transaction = await builder.toTransaction(connection);
+// ✅ Combine both sets of instructions manually but in correct order
+const transaction = new Transaction();
+transaction.add(feeInstruction);                  // add your service fee
+mintTx.instructions.forEach((ix) => transaction.add(ix)); // then add mint instructions
 
-      // ✅ Set payer and blockhash
-      transaction.feePayer = publicKey;
-      transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+// ✅ Add required meta info
+transaction.feePayer = publicKey;
+transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-      setMintStatus("🪙 Minting NFT... please confirm in your wallet");
-      const sig = await sendTransaction(transaction, connection);
+// ✅ Send transaction
+setMintStatus("🪙 Minting NFT... please confirm in your wallet");
+const sig = await sendTransaction(transaction, connection);
+
 
 
       setMintStatus("⌛ Waiting for Solana finalization...");
