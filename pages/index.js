@@ -306,6 +306,11 @@ function TokenizeApp() {
 }
 
 export default function HomePage() {
+  // Force-disable EVM wallets like Metamask
+  if (typeof window !== "undefined" && window.ethereum) {
+    delete window.ethereum;
+  }
+
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
   return (
     <ConnectionProvider endpoint={RPC_URL}>
