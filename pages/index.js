@@ -9,10 +9,10 @@ import {
 import {
   WalletModalProvider,
   WalletMultiButton,
-  useWalletModal,
 } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
+
 import { Connection } from "@solana/web3.js";
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
 
@@ -36,40 +36,10 @@ async function waitForFinalization(connection, sig, { tries = 15, delay = 2000 }
   return false;
 }
 
-// ✅ Custom Phantom-only button
-function PhantomOnlyButton() {
-  const { visible, setVisible } = useWalletModal();
-  const wallet = useWallet();
-
-  return (
-    <button
-      onClick={() => {
-        // Only allow Phantom
-        if (typeof window !== "undefined" && window.solana?.isPhantom) {
-          setVisible(true);
-        } else {
-          alert("❌ Please install or use the Phantom wallet to continue.");
-        }
-      }}
-      disabled={wallet.connecting}
-      style={{
-        background: "#00c2a8",
-        color: "#111",
-        border: "none",
-        borderRadius: 10,
-        padding: "10px 18px",
-        fontWeight: 700,
-        cursor: "pointer",
-      }}
-    >
-      {wallet.connected ? "Connected ✅" : "Connect Phantom Wallet"}
-    </button>
-  );
-}
-
 function TokenizeClient() {
   const wallet = useWallet();
   const { connected, publicKey } = wallet;
+
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [explorerUrl, setExplorerUrl] = useState("");
@@ -84,7 +54,7 @@ function TokenizeClient() {
   const handleTokenize = async () => {
     try {
       if (!connected || !publicKey) {
-        alert("Please connect your Phantom wallet first.");
+        alert("Please connect your wallet first.");
         return;
       }
 
@@ -113,7 +83,7 @@ function TokenizeClient() {
       setMintStatus("🔗 Metadata ready, awaiting wallet approval...");
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
-      setMintStatus("🪙 Minting NFT... please confirm in Phantom");
+      setMintStatus("🪙 Minting NFT... please confirm in your wallet");
       const { response } = await mx.nfts().create({
         uri: metadata_uri,
         name: trimmed_name,
@@ -160,6 +130,7 @@ function TokenizeClient() {
         `}
       </Script>
 
+      {/* Main layout */}
       <div
         style={{
           fontFamily: "Inter, sans-serif",
@@ -171,29 +142,45 @@ function TokenizeClient() {
           justifyContent: "center",
           alignItems: "center",
           position: "relative",
+          padding: "24px 0",
         }}
       >
+        {/* Center box */}
         <div
           style={{
             width: 360,
             maxWidth: "90vw",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            alignItems: "center",
             background: "#111",
             borderRadius: 12,
             padding: 20,
             boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 16,
           }}
         >
-          <img src="/images/TKNZlogo.png" alt="TKNZ Logo" style={{ width: 64, height: 64 }} />
+          <img
+            src="/images/TKNZlogo.png"
+            alt="TKNZ Logo"
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: "12px",
+              alignSelf: "flex-start",
+              marginBottom: 4,
+            }}
+          />
 
-          <PhantomOnlyButton />
+          <div style={{ alignSelf: "flex-end" }}>
+            <WalletMultiButton />
+          </div>
 
-          <h1 style={{ fontSize: 22, fontWeight: 700 }}>Tokenize Text on Solana</h1>
-          <p style={{ color: "#aaa", textAlign: "center", marginTop: -6 }}>
-            Connect your Phantom wallet, enter text, and mint a token forever on Solana.
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
+            Tokenize Text on Solana
+          </h1>
+          <p style={{ color: "#aaa", marginTop: -6, textAlign: "center" }}>
+            Connect wallet, enter text, and mint an immutable token forever stored on Solana.
           </p>
 
           <textarea
@@ -203,11 +190,14 @@ function TokenizeClient() {
             style={{
               width: "100%",
               height: 120,
-              backgroundColor: "#161616",
+              padding: 12,
               borderRadius: 10,
               border: "1px solid #222",
+              outline: "none",
+              resize: "vertical",
+              backgroundColor: "#161616",
               color: "#fff",
-              padding: 12,
+              fontSize: 14,
             }}
           />
 
@@ -217,23 +207,52 @@ function TokenizeClient() {
             style={{
               width: "100%",
               backgroundColor: loading ? "#444" : "#00c2a8",
-              color: "#111",
-              border: "none",
-              borderRadius: 10,
+              color: "#0b0b0b",
               padding: "12px 16px",
-              fontWeight: 800,
+              borderRadius: 10,
+              border: "none",
               cursor: loading ? "default" : "pointer",
+              fontWeight: 800,
+              letterSpacing: 0.3,
             }}
           >
             {loading ? "Minting..." : "Tokenize"}
           </button>
 
-          {mintStatus && <p style={{ color: "#00d1ff", fontSize: 14 }}>{mintStatus}</p>}
+          <a
+            href="https://x.com/tknzfuncom"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              color: "#1DA1F2",
+              marginTop: 18,
+              textDecoration: "none",
+              fontSize: 14,
+            }}
+          >
+            <img src="/images/twitter.svg" alt="Twitter" style={{ width: 18, height: 18 }} />
+            <span>Follow @tknzfuncom</span>
+          </a>
+
+          {mintStatus && (
+            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>
+              {mintStatus}
+            </p>
+          )}
 
           {explorerUrl && (
             <p style={{ marginTop: 8, textAlign: "center" }}>
               ✅ View your transaction on{" "}
-              <a href={explorerUrl} target="_blank" rel="noreferrer" style={{ color: "#00d1ff" }}>
+              <a
+                href={explorerUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "#00d1ff" }}
+              >
                 Solana Explorer
               </a>
             </p>
@@ -242,12 +261,13 @@ function TokenizeClient() {
 
         <footer
           style={{
-            position: "absolute",
-            bottom: 16,
+            textAlign: "center",
             fontSize: 13,
             color: "#888",
-            textAlign: "center",
-            width: "100%",
+            position: "absolute",
+            bottom: 16,
+            left: 0,
+            right: 0,
           }}
         >
           Copyright © TKNZ FUN
