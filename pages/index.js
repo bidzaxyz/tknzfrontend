@@ -45,7 +45,7 @@ function TokenizeClient() {
   const [explorerUrl, setExplorerUrl] = useState("");
   const [mintStatus, setMintStatus] = useState("");
   const [mintAddress, setMintAddress] = useState("");
-  const [toast, setToast] = useState(""); // unified popup
+  const [toast, setToast] = useState(""); // unified toast
 
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
 
@@ -116,10 +116,17 @@ function TokenizeClient() {
     } catch (err) {
       console.error("❌ Minting failed:", err);
 
-      // Handle insufficient lamports specifically
+      // Handle insufficient lamports specifically with native popup
       if (err.message?.includes("insufficient lamports")) {
-        showToast("💸 Not enough SOL to mint. Please top up ~0.02 SOL.");
-      } else if (err.message?.includes("custom program error: 0x1")) {
+        const dialog = document.getElementById("balanceAlert");
+        if (dialog) {
+          dialog.showModal();
+          setTimeout(() => dialog.close(), 5000);
+        }
+        return;
+      }
+
+      if (err.message?.includes("custom program error: 0x1")) {
         showToast("⚠️ Transaction failed. Try again in a few seconds.");
       } else {
         showToast("❌ Minting failed. Please try again later.");
@@ -225,7 +232,6 @@ function TokenizeClient() {
             }}
           />
 
-          {/* 👇 New line: network cost note */}
           <p style={{ color: "#aaa", fontSize: 13, marginTop: -6 }}>
             Network cost: ~0.02 SOL (covers rent & fees)
           </p>
@@ -263,11 +269,7 @@ function TokenizeClient() {
               fontSize: 14,
             }}
           >
-            <img
-              src="/images/twitter.svg"
-              alt="Twitter"
-              style={{ width: 18, height: 18 }}
-            />
+            <img src="/images/twitter.svg" alt="Twitter" style={{ width: 18, height: 18 }} />
             <span>Follow @tknzfuncom</span>
           </a>
 
@@ -304,6 +306,41 @@ function TokenizeClient() {
             </a>
           )}
         </div>
+
+        {/* Native popup dialog for insufficient balance */}
+        <dialog
+          id="balanceAlert"
+          style={{
+            background: "#111",
+            color: "#fff",
+            border: "1px solid #00c2a8",
+            borderRadius: "12px",
+            padding: "20px 24px",
+            maxWidth: "320px",
+            textAlign: "center",
+            boxShadow: "0 0 20px rgba(0,0,0,0.5)",
+          }}
+        >
+          <h3 style={{ color: "#00c2a8", marginBottom: 8 }}>💸 Insufficient Balance</h3>
+          <p style={{ fontSize: 14, color: "#ccc", marginBottom: 16 }}>
+            You don’t have enough SOL to mint. <br />
+            Please top up at least <strong>0.02 SOL</strong> and try again.
+          </p>
+          <button
+            onClick={() => document.getElementById("balanceAlert").close()}
+            style={{
+              background: "#00c2a8",
+              border: "none",
+              color: "#000",
+              padding: "8px 14px",
+              borderRadius: 8,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Close
+          </button>
+        </dialog>
 
         {/* Toast notification */}
         {toast && (
