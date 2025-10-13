@@ -12,19 +12,19 @@ import {
 } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
-
 import {
   Connection,
   SystemProgram,
   Transaction,
   LAMPORTS_PER_SOL,
   PublicKey,
+  Keypair,
 } from "@solana/web3.js";
+
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
 import SiteFooter from "../components/SiteFooter";
 import GA from "../components/GA";
 import Link from "next/link";
-
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ||
@@ -59,7 +59,7 @@ async function waitForFinalization(connection, sig, { tries = 15, delay = 2000 }
 
 function TokenizeClient() {
   const wallet = useWallet();
-  const { connected, publicKey, sendTransaction } = wallet;
+  const { connected, publicKey } = wallet;
 
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -84,133 +84,130 @@ function TokenizeClient() {
     setTimeout(() => setToast(""), 2500);
   };
 
-const handleTokenize = async () => {
-  try {
-    if (!connected || !publicKey) {
-      showToast("⚠️ Please connect your wallet first.");
-      return;
-    }
+  const handleTokenize = async () => {
+    try {
+      if (!connected || !publicKey) {
+        showToast("⚠️ Please connect your wallet first.");
+        return;
+      }
 
-    const trimmed = text.trim();
-    if (!trimmed) {
-      showToast("✍️ Please enter some text to tokenize.");
-      return;
-    }
+      const trimmed = text.trim();
+      if (!trimmed) {
+        showToast("✍️ Please enter some text to tokenize.");
+        return;
+      }
 
-    setLoading(true);
-    setMintStatus("🤖 TKNZFUN robots are preparing blocks for the chain...");
-    setExplorerUrl("");
+      setLoading(true);
+      setMintStatus("🤖 TKNZFUN robots are preparing blocks for the chain...");
+      setExplorerUrl("");
 
-    // 1️⃣ Prepare metadata
-    const res = await fetch(`${API_BASE}/prepare-metadata`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        wallet_address: publicKey.toBase58(),
-        text_content: trimmed,
-      }),
-    });
-    if (!res.ok) throw new Error(`Metadata API failed: ${await res.text()}`);
-    const { metadata_uri, trimmed_name } = await res.json();
+      // 1️⃣ Prepare metadata
+      const res = await fetch(`${API_BASE}/prepare-metadata`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallet_address: publicKey.toBase58(),
+          text_content: trimmed,
+        }),
+      });
+      if (!res.ok) throw new Error(`Metadata API failed: ${await res.text()}`);
+      const { metadata_uri, trimmed_name } = await res.json();
 
-    // 2️⃣ Build transactions
-    const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
+      // 2️⃣ Build transactions
+      const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
-    // --- a) Fee transaction
-    const feeTx = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: publicKey,
-        toPubkey: FEE_WALLET,
-        lamports: 0.01 * LAMPORTS_PER_SOL,
-      })
-    );
-
-    // --- b) NFT mint builder
-    const builder = await mx.nfts().builders().create({
-      uri: metadata_uri,
-      name: trimmed_name,
-      sellerFeeBasisPoints: 0,
-      isMutable: false,
-    });
-    const mintTx = await builder.toTransaction(connection);
-
-    // --- c) partial sign with extra signers (mint keypair etc.)
-    const extraSigners = builder.getSigners?.() || [];
-    const keypairs = extraSigners
-      .filter((s) => s?.secretKey && s?.publicKey)
-      .map((s) => {
-        try {
-          return Keypair.fromSecretKey(s.secretKey);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
-    if (keypairs.length > 0) mintTx.partialSign(...keypairs);
-
-    // --- d) same blockhash + fee payer
-    const { blockhash } = await connection.getLatestBlockhash();
-    feeTx.feePayer = publicKey;
-    mintTx.feePayer = publicKey;
-    feeTx.recentBlockhash = blockhash;
-    mintTx.recentBlockhash = blockhash;
-
-    // 3️⃣ One wallet popup to sign both
-    setMintStatus("💸 Approve fee + mint in one step...");
-    const [signedFeeTx, signedMintTx] = await wallet.signAllTransactions([
-      feeTx,
-      mintTx,
-    ]);
-
-    // 4️⃣ Send fee first, then mint
-    setMintStatus("💸 Sending service fee...");
-    const feeSig = await connection.sendRawTransaction(signedFeeTx.serialize());
-    await waitForFinalization(connection, feeSig);
-
-    setMintStatus("🪙 Minting NFT...");
-    const mintSig = await connection.sendRawTransaction(signedMintTx.serialize());
-    await waitForFinalization(connection, mintSig);
-
-    // 5️⃣ Done
-    const url = `https://explorer.solana.com/tx/${mintSig}?cluster=mainnet`;
-    setExplorerUrl(url);
-    showToast("✅ NFT minted successfully!");
-
-    // ✅ Safely get the mint address (no syntax errors)
-    let createdMint = null;
-    if (builder?.getContext && builder.getContext()?.mintAddress) {
-      createdMint = builder.getContext().mintAddress;
-    } else if (builder?.getMintAddress) {
-      createdMint = builder.getMintAddress();
-    }
-
-    if (createdMint) {
-      setMintAddress(
-        createdMint.toBase58 ? createdMint.toBase58() : String(createdMint)
+      // --- a) Fee transaction
+      const feeTx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: FEE_WALLET,
+          lamports: 0.01 * LAMPORTS_PER_SOL,
+        })
       );
+
+      // --- b) NFT mint builder
+      const builder = await mx.nfts().builders().create({
+        uri: metadata_uri,
+        name: trimmed_name,
+        sellerFeeBasisPoints: 0,
+        isMutable: false,
+      });
+      const mintTx = await builder.toTransaction(connection);
+
+      // ✅ Ensure all Metaplex-generated keypairs sign this transaction
+      const signers = builder.getSigners();
+      signers
+        .filter((s) => s?.secretKey)
+        .forEach((s) => {
+          try {
+            const kp = Keypair.fromSecretKey(s.secretKey);
+            mintTx.partialSign(kp);
+          } catch (e) {
+            console.warn("Failed to partialSign:", e);
+          }
+        });
+
+      // --- c) same blockhash + fee payer
+      const { blockhash } = await connection.getLatestBlockhash();
+      feeTx.feePayer = publicKey;
+      mintTx.feePayer = publicKey;
+      feeTx.recentBlockhash = blockhash;
+      mintTx.recentBlockhash = blockhash;
+
+      // 3️⃣ One wallet popup to sign both
+      setMintStatus("💸 Approve fee + mint in one step...");
+      const [signedFeeTx, signedMintTx] = await wallet.signAllTransactions([
+        feeTx,
+        mintTx,
+      ]);
+
+      // 4️⃣ Send fee first, then mint
+      setMintStatus("💸 Sending service fee...");
+      const feeSig = await connection.sendRawTransaction(signedFeeTx.serialize());
+      await waitForFinalization(connection, feeSig);
+
+      setMintStatus("🪙 Minting NFT...");
+      const mintSig = await connection.sendRawTransaction(signedMintTx.serialize());
+      await waitForFinalization(connection, mintSig);
+
+      // 5️⃣ Done
+      const url = `https://explorer.solana.com/tx/${mintSig}?cluster=mainnet`;
+      setExplorerUrl(url);
+      showToast("✅ NFT minted successfully!");
+
+      // ✅ Safely get the mint address
+      let createdMint = null;
+      if (builder?.getContext && builder.getContext()?.mintAddress) {
+        createdMint = builder.getContext().mintAddress;
+      } else if (builder?.getMintAddress) {
+        createdMint = builder.getMintAddress();
+      }
+
+      if (createdMint) {
+        setMintAddress(
+          createdMint.toBase58 ? createdMint.toBase58() : String(createdMint)
+        );
+      }
+
+      setMintStatus("✅ Finalized on Solana! Check your wallet.");
+    } catch (err) {
+      console.error("❌ Minting failed:", err);
+      const msg = err.message?.toLowerCase() || "";
+      if (
+        msg.includes("insufficient") ||
+        msg.includes("not enough") ||
+        msg.includes("attempt to debit")
+      ) {
+        setShowPopup(true);
+        setTimeout(() => setShowPopup(false), 5000);
+        setMintStatus("❌ Not enough balance to mint.");
+        return;
+      }
+      setMintStatus("❌ Minting failed.");
+    } finally {
+      setLoading(false);
     }
-
-    setMintStatus("✅ Finalized on Solana! Check your wallet.");
-  } catch (err) {
-    console.error("❌ Minting failed:", err);
-    const msg = err.message?.toLowerCase() || "";
-    if (
-      msg.includes("insufficient") ||
-      msg.includes("not enough") ||
-      msg.includes("attempt to debit")
-    ) {
-      setShowPopup(true);
-      setTimeout(() => setShowPopup(false), 5000);
-      setMintStatus("❌ Not enough balance to mint.");
-      return;
-    }
-    setMintStatus("❌ Minting failed.");
-  } finally {
-    setLoading(false);
-  }
-};
-
-
+  };
 
   return (
     <>
@@ -292,7 +289,6 @@ const handleTokenize = async () => {
             }}
           />
 
-          {/* ✅ Updated total cost text */}
           <p style={{ color: "#aaa", fontSize: 13, marginTop: -6 }}>
             Total max cost: 0.03 SOL
           </p>
@@ -316,12 +312,19 @@ const handleTokenize = async () => {
           </button>
 
           {mintStatus && (
-            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>{mintStatus}</p>
+            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>
+              {mintStatus}
+            </p>
           )}
           {explorerUrl && (
             <p style={{ marginTop: 8, textAlign: "center" }}>
               ✅ View your transaction on{" "}
-              <a href={explorerUrl} target="_blank" rel="noreferrer" style={{ color: "#00d1ff" }}>
+              <a
+                href={explorerUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "#00d1ff" }}
+              >
                 Solana Explorer
               </a>
             </p>
