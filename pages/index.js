@@ -92,16 +92,32 @@ function TokenizeClient() {
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
       setMintStatus("🪙 Minting NFT... please confirm in your wallet");
-      const { response } = await mx.nfts().create({
-        uri: metadata_uri,
-        name: trimmed_name,
-        sellerFeeBasisPoints: 0,
-        isMutable: false,
-      });
+const result = await mx.nfts().create({
+  uri: metadata_uri,
+  name: trimmed_name,
+  sellerFeeBasisPoints: 0,
+  isMutable: false,
+});
 
-      setMintAddress(response.mintAddress.toBase58());
-      const sig = response.signature;
-      const url = `https://explorer.solana.com/tx/${sig}?cluster=mainnet`;
+      const mintAddr =
+        result?.nft?.address?.toBase58?.() ||
+        result?.nft?.mintAddress?.toBase58?.() ||
+        result?.response?.mintAddress?.toBase58?.();
+
+      const sig = result?.response?.signature || "";
+
+      if (mintAddr) {
+        setMintAddress(mintAddr);
+        showToast("✅ NFT minted successfully!");
+      } else {
+        console.warn("Mint result structure unexpected:", result);
+        showToast("⚠️ NFT minted, but details couldn’t be retrieved. Check your wallet.");
+      }
+
+      const url = sig
+        ? `https://explorer.solana.com/tx/${sig}?cluster=mainnet`
+        : "";
+
 
       setMintStatus("⌛ Waiting for Solana finalization...");
       await wait(1800);
