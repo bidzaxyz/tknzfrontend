@@ -116,14 +116,15 @@ function TokenizeClient() {
       setMintStatus("🔗 Metadata ready, building combined transaction...");
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
-      // ✅ Create the fee transfer instruction first
-const feeInstruction = SystemProgram.transfer({
-  fromPubkey: publicKey,
-  toPubkey: FEE_WALLET,
-  lamports: 0.01 * LAMPORTS_PER_SOL,
-});
+// --- Build both transactions separately ---
+const feeTx = new Transaction().add(
+  SystemProgram.transfer({
+    fromPubkey: publicKey,
+    toPubkey: FEE_WALLET,
+    lamports: 0.01 * LAMPORTS_PER_SOL,
+  })
+);
 
-// ✅ Build the NFT mint builder
 const builder = await mx
   .nfts()
   .builders()
@@ -134,21 +135,30 @@ const builder = await mx
     isMutable: false,
   });
 
-// ✅ Turn builder into a transaction
 const mintTx = await builder.toTransaction(connection);
 
-// ✅ Combine both sets of instructions manually but in correct order
-const transaction = new Transaction();
-transaction.add(feeInstruction);                  // add your service fee
-mintTx.instructions.forEach((ix) => transaction.add(ix)); // then add mint instructions
+// --- Set payer and recent blockhash for both ---
+const { blockhash } = await connection.getLatestBlockhash();
+feeTx.feePayer = publicKey;
+mintTx.feePayer = publicKey;
+feeTx.recentBlockhash = blockhash;
+mintTx.recentBlockhash = blockhash;
 
-// ✅ Add required meta info
-transaction.feePayer = publicKey;
-transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+// --- Let wallet sign both together ---
+const [signedFeeTx, signedMintTx] = await wallet.signAllTransactions([
+  feeTx,
+  mintTx,
+]);
 
-// ✅ Send transaction
-setMintStatus("🪙 Minting NFT... please confirm in your wallet");
-const sig = await sendTransaction(transaction, connection);
+// --- Send sequentially but with one approval ---
+const sig1 = await connection.sendRawTransaction(signedFeeTx.serialize());
+await waitForFinalization(connection, sig1);
+
+const sig2 = await connection.sendRawTransaction(signedMintTx.serialize());
+await waitForFinalization(connection, sig2);
+
+console.log("✅ Fee sent:", sig1);
+console.log("✅ NFT minted:", sig2);
 
 
 
