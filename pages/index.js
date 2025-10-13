@@ -45,7 +45,7 @@ function TokenizeClient() {
   const [explorerUrl, setExplorerUrl] = useState("");
   const [mintStatus, setMintStatus] = useState("");
   const [mintAddress, setMintAddress] = useState("");
-
+  const [toast, setToast] = useState(""); // unified popup
 
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
 
@@ -53,16 +53,21 @@ function TokenizeClient() {
     fetch(`${API_BASE}/gm`).catch(() => {});
   }, []);
 
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2500);
+  };
+
   const handleTokenize = async () => {
     try {
       if (!connected || !publicKey) {
-        alert("Please connect your wallet first.");
+        showToast("⚠️ Please connect your wallet first.");
         return;
       }
 
       const trimmed = text.trim();
       if (!trimmed) {
-        alert("Please enter some text to tokenize.");
+        showToast("✍️ Please enter some text to tokenize.");
         return;
       }
 
@@ -92,11 +97,11 @@ function TokenizeClient() {
         sellerFeeBasisPoints: 0,
         isMutable: false,
       });
-      // Save minted NFT address to display the token page link
-      setMintAddress(response.mintAddress.toBase58());
 
+      setMintAddress(response.mintAddress.toBase58());
       const sig = response.signature;
       const url = `https://explorer.solana.com/tx/${sig}?cluster=mainnet`;
+
       setMintStatus("⌛ Waiting for Solana finalization...");
       await wait(1800);
       const finalized = await waitForFinalization(connection, sig);
@@ -106,11 +111,20 @@ function TokenizeClient() {
           ? "✅ Finalized on Solana! Check your wallet."
           : "ℹ️ Submitted! If not visible yet, check again soon."
       );
-
       setExplorerUrl(url);
+      showToast("✅ NFT minted successfully!");
     } catch (err) {
       console.error("❌ Minting failed:", err);
-      alert(`Minting failed: ${err.message || err}`);
+
+      // Handle insufficient lamports specifically
+      if (err.message?.includes("insufficient lamports")) {
+        showToast("💸 Not enough SOL to mint. Please top up ~0.02 SOL.");
+      } else if (err.message?.includes("custom program error: 0x1")) {
+        showToast("⚠️ Transaction failed. Try again in a few seconds.");
+      } else {
+        showToast("❌ Minting failed. Please try again later.");
+      }
+
       setMintStatus("❌ Minting failed.");
     } finally {
       setLoading(false);
@@ -121,10 +135,16 @@ function TokenizeClient() {
     <>
       <Head>
         <title>TKNZ — Tokenize Everything</title>
-        <meta name="description" content="Tokenize any text into an immutable NFT on Solana." />
+        <meta
+          name="description"
+          content="Tokenize any text into an immutable NFT on Solana."
+        />
       </Head>
 
-      <Script src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP" strategy="afterInteractive" />
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP"
+        strategy="afterInteractive"
+      />
       <Script id="google-analytics" strategy="afterInteractive">
         {`
           window.dataLayer = window.dataLayer || [];
@@ -205,6 +225,11 @@ function TokenizeClient() {
             }}
           />
 
+          {/* 👇 New line: network cost note */}
+          <p style={{ color: "#aaa", fontSize: 13, marginTop: -6 }}>
+            Network cost: ~0.02 SOL (covers rent & fees)
+          </p>
+
           <button
             onClick={handleTokenize}
             disabled={loading}
@@ -238,7 +263,11 @@ function TokenizeClient() {
               fontSize: 14,
             }}
           >
-            <img src="/images/twitter.svg" alt="Twitter" style={{ width: 18, height: 18 }} />
+            <img
+              src="/images/twitter.svg"
+              alt="Twitter"
+              style={{ width: 18, height: 18 }}
+            />
             <span>Follow @tknzfuncom</span>
           </a>
 
@@ -262,20 +291,38 @@ function TokenizeClient() {
             </p>
           )}
           {mintAddress && (
-          <a
-            href={`/token/${mintAddress}`}
+            <a
+              href={`/token/${mintAddress}`}
+              style={{
+                marginTop: 8,
+                color: "#00ffcc",
+                textDecoration: "none",
+                fontWeight: 700,
+              }}
+            >
+              🔗 View your token page
+            </a>
+          )}
+        </div>
+
+        {/* Toast notification */}
+        {toast && (
+          <div
             style={{
-              marginTop: 8,
-              color: "#00ffcc",
-              textDecoration: "none",
-              fontWeight: 700,
+              position: "fixed",
+              bottom: 80,
+              background: "#00c2a8",
+              color: "#0b0b0b",
+              padding: "8px 16px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              animation: "fadeInOut 2s ease",
             }}
           >
-            🔗 View your token page
-          </a>
+            {toast}
+          </div>
         )}
-
-        </div>
 
         <footer
           style={{
