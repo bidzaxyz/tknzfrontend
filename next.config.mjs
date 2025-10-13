@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',   // ✅ Forces Netlify to build full SSR, not static export
+  output: 'export', // ✅ replaces `next export`
+  images: {
+    unoptimized: true, // ✅ allows static image usage
+  },
   reactStrictMode: true,
 };
 
