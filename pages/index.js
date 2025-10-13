@@ -135,24 +135,26 @@ function TokenizeClient() {
       const mintTx = await builder.toTransaction(connection);
 
       // ✅ Ensure all Metaplex-generated keypairs sign this transaction
-      const signers = builder.getSigners();
-      signers
-        .filter((s) => s?.secretKey)
-        .forEach((s) => {
-          try {
-            const kp = Keypair.fromSecretKey(s.secretKey);
-            mintTx.partialSign(kp);
-          } catch (e) {
-            console.warn("Failed to partialSign:", e);
-          }
-        });
+// --- c) same blockhash + fee payer (set BEFORE signing)
+const { blockhash } = await connection.getLatestBlockhash();
+feeTx.feePayer = publicKey;
+mintTx.feePayer = publicKey;
+feeTx.recentBlockhash = blockhash;
+mintTx.recentBlockhash = blockhash;
 
-      // --- c) same blockhash + fee payer
-      const { blockhash } = await connection.getLatestBlockhash();
-      feeTx.feePayer = publicKey;
-      mintTx.feePayer = publicKey;
-      feeTx.recentBlockhash = blockhash;
-      mintTx.recentBlockhash = blockhash;
+// ✅ Now safely partial sign
+const signers = builder.getSigners();
+signers
+  .filter((s) => s?.secretKey)
+  .forEach((s) => {
+    try {
+      const kp = Keypair.fromSecretKey(s.secretKey);
+      mintTx.partialSign(kp);
+    } catch (e) {
+      console.warn("Failed to partialSign:", e);
+    }
+  });
+
 
       // 3️⃣ One wallet popup to sign both
       setMintStatus("💸 Approve fee + mint in one step...");
