@@ -8,15 +8,18 @@ const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ||
   "https://mainnet.helius-rpc.com/?api-key=029f8e0c-9b81-4d65-885f-e5dcb52f47ea";
 
+/* --- Server-side NFT metadata fetch for OG tags --- */
 export async function getServerSideProps(context) {
   const { mint } = context.params;
   let nftData = null;
+
   try {
     const connection = new Connection(RPC_URL, "finalized");
     const mx = Metaplex.make(connection);
     const mintKey = new PublicKey(mint);
     const nft = await mx.nfts().findByMint({ mintAddress: mintKey });
     const meta = await fetch(nft.uri).then((r) => r.json());
+
     nftData = {
       name: nft.name,
       description: meta.description,
@@ -39,8 +42,8 @@ export default function TokenPage({ nftData }) {
 
   const connection = useMemo(() => new Connection(RPC_URL, "finalized"), []);
 
+  /* --- Client-side enrichment for extra fields --- */
   useEffect(() => {
-    // Fetch remaining fields client-side (owner, timestamp, etc.)
     const fetchExtras = async () => {
       if (!nftData?.mint) return;
       try {
@@ -52,8 +55,10 @@ export default function TokenPage({ nftData }) {
           sigs?.[0]?.blockTime
             ? new Date(sigs[0].blockTime * 1000).toLocaleString()
             : "Unknown";
+
         const owner = nft.updateAuthorityAddress?.toBase58() || "Unknown";
         const creators = nft.creators?.map((c) => c.address.toBase58()) || [];
+
         setFullData({
           ...nftData,
           owner,
@@ -69,6 +74,7 @@ export default function TokenPage({ nftData }) {
     fetchExtras();
   }, [nftData, connection]);
 
+  /* --- Helpers --- */
   const shorten = (str) => (str ? `${str.slice(0, 4)}...${str.slice(-4)}` : "Unknown");
   const copyToClipboard = (value) => {
     navigator.clipboard.writeText(value);
@@ -76,12 +82,12 @@ export default function TokenPage({ nftData }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  /* --- Metadata for OG / Twitter --- */
   const title = fullData?.name || "TKNZ — Tokenized NFT";
   const desc =
     fullData?.description ||
     "View this tokenized text NFT on Solana via TKNZ.";
-  const image =
-    fullData?.image || "https://tknzfun.com/images/ogimage.png";
+  const image = fullData?.image || "https://tknzfun.com/images/ogimage.png";
   const url = `https://tknzfun.com/token/${fullData?.mint || ""}`;
 
   return (
@@ -89,16 +95,23 @@ export default function TokenPage({ nftData }) {
       <Head>
         <title>{title}</title>
         <meta name="description" content={desc} />
-        <meta property="og:type" content="website" />
+
+        {/* Open Graph Meta */}
+        <meta property="og:type" content="article" />
+        <meta property="og:url" content={url} />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={desc} />
-        <meta property="og:url" content={url} />
         <meta property="og:image" content={image} />
+        <meta property="og:site_name" content="TKNZ" />
+
+        {/* Twitter Card Meta */}
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content="@tknzfuncom" />
         <meta name="twitter:title" content={title} />
         <meta name="twitter:description" content={desc} />
         <meta name="twitter:image" content={image} />
-        <meta name="twitter:site" content="@tknzfuncom" />
+
+        <link rel="canonical" href={url} />
       </Head>
 
       <div style={styles.page}>
@@ -149,9 +162,7 @@ export default function TokenPage({ nftData }) {
                     📋 Copy Link
                   </button>
                   <a
-                    href={`https://x.com/intent/tweet?text=${encodeURIComponent(
-                      `${url}`
-                    )}`}
+                    href={`https://x.com/intent/tweet?text=${encodeURIComponent(url)}`}
                     target="_blank"
                     rel="noreferrer"
                     style={styles.shareBtn}
@@ -173,7 +184,8 @@ export default function TokenPage({ nftData }) {
             <span>Follow @tknzfuncom</span>
           </a>
         </div>
-        {copied && <div style={styles.toast}>Copied ✅</div>}
+
+        {copied && <div style={styles.toast}>Link copied ✅</div>}
         <footer style={styles.footer}>Copyright © TKNZ FUN</footer>
       </div>
     </>
@@ -198,7 +210,7 @@ export default function TokenPage({ nftData }) {
   }
 }
 
-/* --- Styles (same as your current layout) --- */
+/* --- Styles (same visual layout) --- */
 const styles = {
   page: { fontFamily: "Inter, sans-serif", background: "#343541", color: "#fff", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, position: "relative" },
   card: { background: "#111", borderRadius: 12, padding: 24, width: 760, maxWidth: "95vw", boxShadow: "0 10px 30px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", alignItems: "center" },
