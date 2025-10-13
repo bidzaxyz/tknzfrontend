@@ -92,12 +92,12 @@ function TokenizeClient() {
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
       setMintStatus("🪙 Minting NFT... please confirm in your wallet");
-const result = await mx.nfts().create({
-  uri: metadata_uri,
-  name: trimmed_name,
-  sellerFeeBasisPoints: 0,
-  isMutable: false,
-});
+      const result = await mx.nfts().create({
+        uri: metadata_uri,
+        name: trimmed_name,
+        sellerFeeBasisPoints: 0,
+        isMutable: false,
+      });
 
       const mintAddr =
         result?.nft?.address?.toBase58?.() ||
@@ -118,24 +118,20 @@ const result = await mx.nfts().create({
         ? `https://explorer.solana.com/tx/${sig}?cluster=mainnet`
         : "";
 
-
       setMintStatus("⌛ Waiting for Solana finalization...");
       await wait(1800);
-      const finalized = await waitForFinalization(connection, sig);
+      const finalized = sig ? await waitForFinalization(connection, sig) : false;
 
       setMintStatus(
         finalized
           ? "✅ Finalized on Solana! Check your wallet."
           : "ℹ️ Submitted! If not visible yet, check again soon."
       );
-      setExplorerUrl(url);
-      showToast("✅ NFT minted successfully!");
+      if (url) setExplorerUrl(url);
     } catch (err) {
       console.error("❌ Minting failed:", err);
-
       const msg = err.message?.toLowerCase() || "";
 
-      // Expanded detection for low-balance & simulation errors
       if (
         msg.includes("insufficient lamports") ||
         msg.includes("no record of a prior credit") ||
@@ -150,7 +146,7 @@ const result = await mx.nfts().create({
         return;
       }
 
-      showToast("❌ Minting failed. Please try again later.");
+      // single consistent failure message
       setMintStatus("❌ Minting failed.");
     } finally {
       setLoading(false);
@@ -194,7 +190,6 @@ const result = await mx.nfts().create({
           padding: "24px 0",
         }}
       >
-        {/* Center Box */}
         <div
           style={{
             width: 360,
@@ -220,18 +215,15 @@ const result = await mx.nfts().create({
               marginBottom: 4,
             }}
           />
-
           <div style={{ alignSelf: "flex-end" }}>
             <WalletMultiButton />
           </div>
-
           <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
             Tokenize Text on Solana
           </h1>
           <p style={{ color: "#aaa", marginTop: -6, textAlign: "center" }}>
             Connect wallet, enter text, and mint an immutable token forever stored on Solana.
           </p>
-
           <textarea
             placeholder="Enter text to tokenize..."
             value={text}
@@ -249,11 +241,9 @@ const result = await mx.nfts().create({
               fontSize: 14,
             }}
           />
-
           <p style={{ color: "#aaa", fontSize: 13, marginTop: -6 }}>
             Network cost: ~0.02 SOL (covers rent & fees)
           </p>
-
           <button
             onClick={handleTokenize}
             disabled={loading}
@@ -287,20 +277,13 @@ const result = await mx.nfts().create({
               fontSize: 14,
             }}
           >
-            <img
-              src="/images/twitter.svg"
-              alt="Twitter"
-              style={{ width: 18, height: 18 }}
-            />
+            <img src="/images/twitter.svg" alt="Twitter" style={{ width: 18, height: 18 }} />
             <span>Follow @tknzfuncom</span>
           </a>
 
           {mintStatus && (
-            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>
-              {mintStatus}
-            </p>
+            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>{mintStatus}</p>
           )}
-
           {explorerUrl && (
             <p style={{ marginTop: 8, textAlign: "center" }}>
               ✅ View your transaction on{" "}
@@ -324,7 +307,6 @@ const result = await mx.nfts().create({
           )}
         </div>
 
-        {/* Global Popup */}
         {showPopup && (
           <div
             style={{
@@ -375,7 +357,6 @@ const result = await mx.nfts().create({
           </div>
         )}
 
-        {/* Toast */}
         {toast && (
           <div
             style={{
