@@ -13,7 +13,13 @@ import {
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-import { Connection } from "@solana/web3.js";
+import {
+  Connection,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+} from "@solana/web3.js";
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
 import SiteFooter from "../components/SiteFooter";
 import GA from "../components/GA";
@@ -25,6 +31,17 @@ const API_BASE =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   "https://tknzbackend.onrender.com";
 const FINALITY = "finalized";
+
+// ✅ Fee wallet from environment variable (set in Netlify)
+let FEE_WALLET;
+if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_FEE_WALLET) {
+  try {
+    const { PublicKey } = require("@solana/web3.js");
+    FEE_WALLET = new PublicKey(process.env.NEXT_PUBLIC_FEE_WALLET);
+  } catch (e) {
+    console.error("Failed to load PublicKey:", e);
+  }
+}
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function waitForFinalization(connection, sig, { tries = 15, delay = 2000 } = {}) {
@@ -40,7 +57,7 @@ async function waitForFinalization(connection, sig, { tries = 15, delay = 2000 }
 
 function TokenizeClient() {
   const wallet = useWallet();
-  const { connected, publicKey } = wallet;
+  const { connected, publicKey, sendTransaction } = wallet;
 
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -53,10 +70,10 @@ function TokenizeClient() {
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
 
   useEffect(() => {
-    document.body.style.overflow = "hidden"; // ✅ prevent vertical scroll
+    document.body.style.overflow = "hidden";
     fetch(`${API_BASE}/gm`).catch(() => {});
     return () => {
-      document.body.style.overflow = ""; // reset on unmount
+      document.body.style.overflow = "";
     };
   }, []);
 
@@ -94,56 +111,52 @@ function TokenizeClient() {
       if (!res.ok) throw new Error(`Metadata API failed: ${await res.text()}`);
       const { metadata_uri, trimmed_name } = await res.json();
 
-      setMintStatus("🔗 Metadata ready, awaiting wallet approval...");
+      setMintStatus("🔗 Metadata ready, building combined transaction...");
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
 
-      setMintStatus("🪙 Minting NFT... please confirm in your wallet");
-      const result = await mx.nfts().create({
-        uri: metadata_uri,
-        name: trimmed_name,
-        sellerFeeBasisPoints: 0,
-        isMutable: false,
+      // ✅ Build NFT mint transaction (not send yet)
+      const { nft, response } = await mx
+        .nfts()
+        .builders()
+        .create({
+          uri: metadata_uri,
+          name: trimmed_name,
+          sellerFeeBasisPoints: 0,
+          isMutable: false,
+        });
+
+      // ✅ Create fee transfer instruction
+      const feeInstruction = SystemProgram.transfer({
+        fromPubkey: publicKey,
+        toPubkey: FEE_WALLET,
+        lamports: 0.01 * LAMPORTS_PER_SOL,
       });
 
-      const mintAddr =
-        result?.nft?.address?.toBase58?.() ||
-        result?.nft?.mintAddress?.toBase58?.() ||
-        result?.response?.mintAddress?.toBase58?.();
+      // ✅ Combine fee + mint instructions into one transaction
+      const transaction = new Transaction().add(feeInstruction, ...response.instructions);
 
-      const sig = result?.response?.signature || "";
-
-      if (mintAddr) {
-        setMintAddress(mintAddr);
-        showToast("✅ NFT minted successfully!");
-      } else {
-        console.warn("Mint result structure unexpected:", result);
-        showToast("⚠️ NFT minted, but details couldn’t be retrieved. Check your wallet.");
-      }
-
-      const url = sig
-        ? `https://explorer.solana.com/tx/${sig}?cluster=mainnet`
-        : "";
+      setMintStatus("🪙 Minting NFT... please confirm in your wallet");
+      const sig = await sendTransaction(transaction, connection);
 
       setMintStatus("⌛ Waiting for Solana finalization...");
-      await wait(1800);
-      const finalized = sig ? await waitForFinalization(connection, sig) : false;
+      const finalized = await waitForFinalization(connection, sig);
+      const url = `https://explorer.solana.com/tx/${sig}?cluster=mainnet`;
 
-      setMintStatus(
-        finalized
-          ? "✅ Finalized on Solana! Check your wallet."
-          : "ℹ️ Submitted! If not visible yet, check again soon."
-      );
-      if (url) setExplorerUrl(url);
+      if (finalized) {
+        showToast("✅ NFT minted successfully!");
+        setMintStatus("✅ Finalized on Solana! Check your wallet.");
+      } else {
+        setMintStatus("ℹ️ Submitted! If not visible yet, check again soon.");
+      }
+
+      setExplorerUrl(url);
+      setMintAddress(nft.address.toBase58());
     } catch (err) {
       console.error("❌ Minting failed:", err);
       const msg = err.message?.toLowerCase() || "";
-
       if (
-        msg.includes("insufficient lamports") ||
-        msg.includes("no record of a prior credit") ||
-        msg.includes("insufficient funds") ||
+        msg.includes("insufficient") ||
         msg.includes("not enough") ||
-        msg.includes("simulation failed") ||
         msg.includes("attempt to debit")
       ) {
         setShowPopup(true);
@@ -151,7 +164,6 @@ function TokenizeClient() {
         setMintStatus("❌ Not enough balance to mint.");
         return;
       }
-
       setMintStatus("❌ Minting failed.");
     } finally {
       setLoading(false);
@@ -175,7 +187,7 @@ function TokenizeClient() {
           fontFamily: "Inter, sans-serif",
           background: "#343541",
           color: "#fff",
-          height: "100vh", // ✅ fills viewport, no scroll
+          height: "100vh",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -197,17 +209,19 @@ function TokenizeClient() {
             marginTop: 100,
           }}
         >
-          <img
-            src="/images/TKNZlogo.png"
-            alt="TKNZFUN Logo"
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: "12px",
-              alignSelf: "flex-start",
-              marginBottom: 4,
-            }}
-          />
+          <Link href="/" style={{ display: "inline-block", alignSelf: "flex-start" }}>
+            <img
+              src="/images/TKNZlogo.png"
+              alt="TKNZFUN Logo"
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "12px",
+                marginBottom: 4,
+                cursor: "pointer",
+              }}
+            />
+          </Link>
           <div style={{ alignSelf: "flex-end" }}>
             <WalletMultiButton />
           </div>
@@ -236,8 +250,9 @@ function TokenizeClient() {
             }}
           />
 
+          {/* ✅ Updated total cost text */}
           <p style={{ color: "#aaa", fontSize: 13, marginTop: -6 }}>
-            Network cost: ~0.02 SOL (covers rent & fees)
+            Total max cost: 0.03 SOL
           </p>
 
           <button
@@ -258,29 +273,8 @@ function TokenizeClient() {
             {loading ? "Minting..." : "Tokenize"}
           </button>
 
-          <a
-            href="https://x.com/tknzfuncom"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              color: "#1DA1F2",
-              marginTop: 18,
-              textDecoration: "none",
-              fontSize: 14,
-            }}
-          >
-            <img src="/images/twitter.svg" alt="Twitter" style={{ width: 18, height: 18 }} />
-            <span>Follow @tknzfuncom</span>
-          </a>
-
           {mintStatus && (
-            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>
-              {mintStatus}
-            </p>
+            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>{mintStatus}</p>
           )}
           {explorerUrl && (
             <p style={{ marginTop: 8, textAlign: "center" }}>
@@ -305,86 +299,16 @@ function TokenizeClient() {
           )}
         </div>
 
-        {showPopup && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0,0,0,0.7)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1000,
-            }}
-          >
-            <div
-              style={{
-                background: "#111",
-                border: "1px solid #00c2a8",
-                borderRadius: 12,
-                padding: "24px 28px",
-                textAlign: "center",
-                maxWidth: "320px",
-                color: "#fff",
-                boxShadow: "0 0 20px rgba(0,0,0,0.6)",
-              }}
-            >
-              <h3 style={{ color: "#00c2a8", marginBottom: 8 }}>💸 Insufficient Balance</h3>
-              <p style={{ fontSize: 14, color: "#ccc", marginBottom: 16 }}>
-                You don’t have enough SOL to mint.<br />
-                Please top up at least <strong>0.02 SOL</strong> and try again.
-              </p>
-              <button
-                onClick={() => setShowPopup(false)}
-                style={{
-                  background: "#00c2a8",
-                  border: "none",
-                  color: "#000",
-                  padding: "8px 14px",
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {toast && (
-          <div
-            style={{
-              position: "fixed",
-              bottom: 80,
-              background: "#00c2a8",
-              color: "#0b0b0b",
-              padding: "8px 16px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              animation: "fadeInOut 2s ease",
-            }}
-          >
-            {toast}
-          </div>
-        )}
-
-        {/* Footer with consistent layout */}
         <div
           style={{
-            width: "100%",              // ✅ allow full-width footer grid
-            marginTop: "auto",          // pushes footer to bottom
-            display: "block",           // breaks flex center alignment
-            paddingBottom: 8,           // minimal breathing space
+            width: "100%",
+            marginTop: "auto",
+            display: "block",
+            paddingBottom: 8,
           }}
         >
           <SiteFooter />
         </div>
-
       </div>
     </>
   );

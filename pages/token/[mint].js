@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import GA from "../../components/GA";
 import SiteFooter from "../../components/SiteFooter";
+import Link from "next/link";
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ||
@@ -137,15 +138,17 @@ export default function TokenPage({ nftData }) {
       >
         <div style={styles.card}>
           <div style={styles.headerRow}>
-            <img
-              src="/images/TKNZlogo.png"
-              alt="TKNZFUN Logo"
-              style={styles.logo}
-            />
+            <Link href="/" style={{ display: "inline-block" }}>
+              <img
+                src="/images/TKNZlogo.png"
+                alt="TKNZFUN Logo"
+                style={{ ...styles.logo, cursor: "pointer" }}
+              />
+            </Link>
           </div>
-
           {!fullData ? (
             <p style={styles.loading}>⏳ Loading token data...</p>
+
           ) : (
             <div style={styles.contentRow}>
               <img
