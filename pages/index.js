@@ -315,10 +315,8 @@ function TokenizeApp() {
 }
 
 export default function HomePage() {
-  const [ready, setReady] = useState(false);
-
+  // Hide MetaMask from wallet list after modal loads
   useEffect(() => {
-    // Remove only MetaMask from detected wallet list
     const interval = setInterval(() => {
       document
         .querySelectorAll('button[data-wallet-name*="MetaMask" i]')
@@ -327,10 +325,7 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
-
-  if (!ready) return null; // Wait until we clean up window.ethereum
 
   return (
     <ConnectionProvider endpoint={RPC_URL}>
@@ -342,4 +337,5 @@ export default function HomePage() {
     </ConnectionProvider>
   );
 }
+
 
