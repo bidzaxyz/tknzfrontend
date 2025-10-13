@@ -25,6 +25,7 @@ const API_BASE =
 const FINALITY = "finalized";
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function waitForFinalization(connection, sig, { tries = 15, delay = 2000 } = {}) {
   for (let i = 0; i < tries; i++) {
     try {
@@ -131,8 +132,8 @@ function TokenizeClient() {
     }
   };
 
-return (
-  <>
+  return (
+    <>
       <Head>
         <title>TKNZ — Tokenize Everything</title>
         <meta name="title" content="TKNZ — Tokenize Everything" />
@@ -142,7 +143,6 @@ return (
         />
       </Head>
 
-      {/* ✅ Google Tag */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP"
         strategy="afterInteractive"
@@ -156,7 +156,7 @@ return (
         `}
       </Script>
 
-      {/* ✅ Outer Wrapper */}
+      {/* ✅ Main layout */}
       <div
         style={{
           fontFamily: "Inter, sans-serif",
@@ -164,13 +164,14 @@ return (
           background: "#343541",
           color: "#fff",
           display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
           alignItems: "center",
-          justifyContent: "center", // center main box vertically
           position: "relative",
           padding: "24px 0",
         }}
       >
-        {/* ✅ Center Box */}
+        {/* Center box */}
         <div
           style={{
             width: 360,
@@ -205,7 +206,7 @@ return (
             Tokenize Text on Solana
           </h1>
           <p style={{ color: "#aaa", marginTop: -6, textAlign: "center" }}>
-            Connect wallet, enter text, create a token of this text that lives on Solana forever.
+            Connect wallet, enter text, and mint an immutable token forever stored on Solana.
           </p>
 
           <textarea
@@ -288,7 +289,6 @@ return (
           )}
         </div>
 
-        {/* ✅ Footer pinned bottom */}
         <footer
           style={{
             textAlign: "center",
@@ -315,16 +315,6 @@ function TokenizeApp() {
 }
 
 export default function HomePage() {
-  // Hide MetaMask from wallet list after modal loads
-  useEffect(() => {
-    const interval = setInterval(() => {
-      document
-        .querySelectorAll('button[data-wallet-name*="MetaMask" i]')
-        .forEach((el) => el.remove());
-    }, 500);
-    return () => clearInterval(interval);
-  }, []);
-
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
   return (
@@ -337,5 +327,3 @@ export default function HomePage() {
     </ConnectionProvider>
   );
 }
-
-
