@@ -1,10 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export', // ✅ replaces `next export`
-  images: {
-    unoptimized: true, // ✅ allows static image usage
-  },
   reactStrictMode: true,
+  images: {
+    unoptimized: true, // keep this if you want to continue using <img>
+  },
 };
 
 export default nextConfig;

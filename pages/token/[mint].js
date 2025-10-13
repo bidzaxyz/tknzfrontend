@@ -1,11 +1,11 @@
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
-import { Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { Metaplex } from "@metaplex-foundation/js";
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ||
-  "https://rpc.helius.xyz/?api-key=YOUR_API_KEY";
+  "https://mainnet.helius-rpc.com/?api-key=029f8e0c-9b81-4d65-885f-e5dcb52f47ea";
 const FINALITY = "finalized";
 
 export default function TokenPage() {
@@ -19,12 +19,14 @@ export default function TokenPage() {
 
   useEffect(() => {
     if (!mint) return;
+console.log("Fetching NFT for mint:", mint);
 
     const fetchNFT = async () => {
       try {
         setLoading(true);
         const mx = Metaplex.make(connection);
-        const nft = await mx.nfts().findByMint({ mintAddress: mint });
+        const mintKey = new PublicKey(mint);
+        const nft = await mx.nfts().findByMint({ mintAddress: mintKey });
         const meta = await fetch(nft.uri).then((r) => r.json());
         setNftData({
           name: nft.name,
