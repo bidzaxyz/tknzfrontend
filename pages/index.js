@@ -135,30 +135,28 @@ const builder = await mx
     isMutable: false,
   });
 
-const mintTx = await builder.toTransaction(connection);
+// ✅ Create fee instruction
+const feeInstruction = SystemProgram.transfer({
+  fromPubkey: publicKey,
+  toPubkey: FEE_WALLET,
+  lamports: 0.01 * LAMPORTS_PER_SOL,
+});
 
-// --- Set payer and recent blockhash for both ---
-const { blockhash } = await connection.getLatestBlockhash();
-feeTx.feePayer = publicKey;
-mintTx.feePayer = publicKey;
-feeTx.recentBlockhash = blockhash;
-mintTx.recentBlockhash = blockhash;
+setMintStatus("🪙 Minting NFT... please confirm in your wallet");
 
-// --- Let wallet sign both together ---
-const [signedFeeTx, signedMintTx] = await wallet.signAllTransactions([
-  feeTx,
-  mintTx,
-]);
+// ✅ Pass feeInstruction as a pre-instruction to Metaplex
+const result = await mx.nfts().create({
+  uri: metadata_uri,
+  name: trimmed_name,
+  sellerFeeBasisPoints: 0,
+  isMutable: false,
+  // 👇 this is key — runs fee transfer first inside the same transaction
+  preInstructions: [feeInstruction],
+});
 
-// --- Send sequentially but with one approval ---
-const sig1 = await connection.sendRawTransaction(signedFeeTx.serialize());
-await waitForFinalization(connection, sig1);
+const sig = result?.response?.signature;
+console.log("✅ Combined transaction signature:", sig);
 
-const sig2 = await connection.sendRawTransaction(signedMintTx.serialize());
-await waitForFinalization(connection, sig2);
-
-console.log("✅ Fee sent:", sig1);
-console.log("✅ NFT minted:", sig2);
 
 
 
