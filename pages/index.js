@@ -306,12 +306,26 @@ function TokenizeApp() {
 }
 
 export default function HomePage() {
-  // Force-disable EVM wallets like Metamask
-  if (typeof window !== "undefined" && window.ethereum) {
-    delete window.ethereum;
-  }
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    // ✅ Disable Metamask or any injected EVM wallet
+    if (window?.ethereum) {
+      try {
+        delete window.ethereum;
+        console.log("Removed injected EVM wallet.");
+      } catch {
+        // fallback if deletion fails
+        window.ethereum = undefined;
+      }
+    }
+    setReady(true);
+  }, []);
 
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
+
+  if (!ready) return null; // Wait until we clean up window.ethereum
+
   return (
     <ConnectionProvider endpoint={RPC_URL}>
       <WalletProvider wallets={wallets} autoConnect>
@@ -322,3 +336,4 @@ export default function HomePage() {
     </ConnectionProvider>
   );
 }
+
