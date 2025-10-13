@@ -133,6 +133,7 @@ function TokenizeClient() {
 
   return (
     <>
+      {/* ✅ Google Tag */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP"
         strategy="afterInteractive"
@@ -146,7 +147,7 @@ function TokenizeClient() {
         `}
       </Script>
 
-      {/* Outer wrapper with dark bluish background */}
+      {/* ✅ Outer Wrapper */}
       <div
         style={{
           fontFamily: "Inter, sans-serif",
@@ -154,13 +155,13 @@ function TokenizeClient() {
           background: "#343541",
           color: "#fff",
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
           alignItems: "center",
+          justifyContent: "center", // center main box vertically
+          position: "relative",
           padding: "24px 0",
         }}
       >
-        {/* Center content */}
+        {/* ✅ Center Box */}
         <div
           style={{
             width: 360,
@@ -195,7 +196,7 @@ function TokenizeClient() {
             Tokenize Text on Solana
           </h1>
           <p style={{ color: "#aaa", marginTop: -6, textAlign: "center" }}>
-            Connect wallet, enter text, create a token of this text that lives on Solana forever. 
+            Connect wallet, enter text, create a token of this text that lives on Solana forever.
           </p>
 
           <textarea
@@ -235,7 +236,7 @@ function TokenizeClient() {
           </button>
 
           <a
-            href="https://x.com/Bidzaxyz"
+            href="https://x.com/tknzfuncom"
             target="_blank"
             rel="noreferrer"
             style={{
@@ -254,7 +255,7 @@ function TokenizeClient() {
               alt="Twitter"
               style={{ width: 18, height: 18 }}
             />
-            <span>Follow @bidza_xyz</span>
+            <span>Follow @tknzfuncom</span>
           </a>
 
           {mintStatus && (
@@ -278,13 +279,16 @@ function TokenizeClient() {
           )}
         </div>
 
-        {/* Footer */}
+        {/* ✅ Footer pinned bottom */}
         <footer
           style={{
             textAlign: "center",
             fontSize: 13,
             color: "#888",
-            marginTop: 24,
+            position: "absolute",
+            bottom: 16,
+            left: 0,
+            right: 0,
           }}
         >
           Copyright © TKNZ FUN

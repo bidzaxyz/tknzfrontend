@@ -22,7 +22,7 @@ export default function App({ Component, pageProps }) {
 
         {/* Open Graph */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://tknz.bidza.xyz/" />
+        <meta property="og:url" content="https://tknzfun.com/" />
         <meta property="og:title" content="TKNZ — Tokenize Everything" />
         <meta
           property="og:description"
@@ -30,12 +30,12 @@ export default function App({ Component, pageProps }) {
         />
         <meta
           property="og:image"
-          content="https://tknz.bidza.xyz/images/ogimage.png"
+          content="https://tknzfun.com/images/ogimage.png"
         />
 
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content="https://tknz.bidza.xyz/" />
+        <meta name="twitter:url" content="https://tknzfun.com/" />
         <meta name="twitter:title" content="TKNZ — Tokenize Everything" />
         <meta
           name="twitter:description"
@@ -43,7 +43,7 @@ export default function App({ Component, pageProps }) {
         />
         <meta
           name="twitter:image"
-          content="https://tknz.bidza.xyz/images/ogimage.png"
+          content="https://tknzfun.com/images/ogimage.png"
         />
 
         <link rel="icon" href="/favicon.ico" />
