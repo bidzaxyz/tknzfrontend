@@ -25,7 +25,6 @@ const API_BASE =
 const FINALITY = "finalized";
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-
 async function waitForFinalization(connection, sig, { tries = 15, delay = 2000 } = {}) {
   for (let i = 0; i < tries; i++) {
     try {
@@ -315,29 +314,25 @@ function TokenizeApp() {
 }
 
 export default function HomePage() {
-  const [ready, setReady] = useState(false);
-
-  // ✅ Remove MetaMask from global scope before wallet modal loads
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.ethereum) {
-      // Backup then delete MetaMask injection
-      window._ethereumBackup = window.ethereum;
-      delete window.ethereum;
-    }
-    setReady(true); // <-- this was missing; enables render
-    return () => {
-      // Restore MetaMask when leaving page
-      if (window._ethereumBackup) window.ethereum = window._ethereumBackup;
-    };
-  }, []);
-
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
-  if (!ready) return null; // wait until cleanup done
+  // ⚠️ If user connects wrong wallet (like MetaMask)
+  const handleWalletError = (error) => {
+    const msg = String(error?.message || "");
+    if (
+      msg.includes("ethereum") ||
+      msg.includes("EVM") ||
+      msg.toLowerCase().includes("metamask")
+    ) {
+      alert("❌ Please use a Solana-compatible wallet such as Phantom.");
+    } else {
+      console.error("Wallet error:", error);
+    }
+  };
 
   return (
     <ConnectionProvider endpoint={RPC_URL}>
-      <WalletProvider wallets={wallets} autoConnect>
+      <WalletProvider wallets={wallets} autoConnect onError={handleWalletError}>
         <WalletModalProvider>
           <TokenizeApp />
         </WalletModalProvider>
