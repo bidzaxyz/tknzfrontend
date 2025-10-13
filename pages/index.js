@@ -45,7 +45,8 @@ function TokenizeClient() {
   const [explorerUrl, setExplorerUrl] = useState("");
   const [mintStatus, setMintStatus] = useState("");
   const [mintAddress, setMintAddress] = useState("");
-  const [toast, setToast] = useState(""); // unified toast
+  const [toast, setToast] = useState("");
+  const [showPopup, setShowPopup] = useState(false);
 
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
 
@@ -116,22 +117,24 @@ function TokenizeClient() {
     } catch (err) {
       console.error("❌ Minting failed:", err);
 
-      // Handle insufficient lamports specifically with native popup
-      if (err.message?.includes("insufficient lamports")) {
-        const dialog = document.getElementById("balanceAlert");
-        if (dialog) {
-          dialog.showModal();
-          setTimeout(() => dialog.close(), 5000);
-        }
+      const msg = err.message?.toLowerCase() || "";
+
+      // Expanded detection for low-balance & simulation errors
+      if (
+        msg.includes("insufficient lamports") ||
+        msg.includes("no record of a prior credit") ||
+        msg.includes("insufficient funds") ||
+        msg.includes("not enough") ||
+        msg.includes("simulation failed") ||
+        msg.includes("attempt to debit")
+      ) {
+        setShowPopup(true);
+        setTimeout(() => setShowPopup(false), 5000);
+        setMintStatus("❌ Not enough balance to mint.");
         return;
       }
 
-      if (err.message?.includes("custom program error: 0x1")) {
-        showToast("⚠️ Transaction failed. Try again in a few seconds.");
-      } else {
-        showToast("❌ Minting failed. Please try again later.");
-      }
-
+      showToast("❌ Minting failed. Please try again later.");
       setMintStatus("❌ Minting failed.");
     } finally {
       setLoading(false);
@@ -161,7 +164,6 @@ function TokenizeClient() {
         `}
       </Script>
 
-      {/* Main layout */}
       <div
         style={{
           fontFamily: "Inter, sans-serif",
@@ -176,7 +178,7 @@ function TokenizeClient() {
           padding: "24px 0",
         }}
       >
-        {/* Center box */}
+        {/* Center Box */}
         <div
           style={{
             width: 360,
@@ -269,7 +271,11 @@ function TokenizeClient() {
               fontSize: 14,
             }}
           >
-            <img src="/images/twitter.svg" alt="Twitter" style={{ width: 18, height: 18 }} />
+            <img
+              src="/images/twitter.svg"
+              alt="Twitter"
+              style={{ width: 18, height: 18 }}
+            />
             <span>Follow @tknzfuncom</span>
           </a>
 
@@ -282,12 +288,7 @@ function TokenizeClient() {
           {explorerUrl && (
             <p style={{ marginTop: 8, textAlign: "center" }}>
               ✅ View your transaction on{" "}
-              <a
-                href={explorerUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: "#00d1ff" }}
-              >
+              <a href={explorerUrl} target="_blank" rel="noreferrer" style={{ color: "#00d1ff" }}>
                 Solana Explorer
               </a>
             </p>
@@ -307,42 +308,58 @@ function TokenizeClient() {
           )}
         </div>
 
-        {/* Native popup dialog for insufficient balance */}
-        <dialog
-          id="balanceAlert"
-          style={{
-            background: "#111",
-            color: "#fff",
-            border: "1px solid #00c2a8",
-            borderRadius: "12px",
-            padding: "20px 24px",
-            maxWidth: "320px",
-            textAlign: "center",
-            boxShadow: "0 0 20px rgba(0,0,0,0.5)",
-          }}
-        >
-          <h3 style={{ color: "#00c2a8", marginBottom: 8 }}>💸 Insufficient Balance</h3>
-          <p style={{ fontSize: 14, color: "#ccc", marginBottom: 16 }}>
-            You don’t have enough SOL to mint. <br />
-            Please top up at least <strong>0.02 SOL</strong> and try again.
-          </p>
-          <button
-            onClick={() => document.getElementById("balanceAlert").close()}
+        {/* Global Popup */}
+        {showPopup && (
+          <div
             style={{
-              background: "#00c2a8",
-              border: "none",
-              color: "#000",
-              padding: "8px 14px",
-              borderRadius: 8,
-              fontWeight: 600,
-              cursor: "pointer",
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.7)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
             }}
           >
-            Close
-          </button>
-        </dialog>
+            <div
+              style={{
+                background: "#111",
+                border: "1px solid #00c2a8",
+                borderRadius: 12,
+                padding: "24px 28px",
+                textAlign: "center",
+                maxWidth: "320px",
+                color: "#fff",
+                boxShadow: "0 0 20px rgba(0,0,0,0.6)",
+              }}
+            >
+              <h3 style={{ color: "#00c2a8", marginBottom: 8 }}>💸 Insufficient Balance</h3>
+              <p style={{ fontSize: 14, color: "#ccc", marginBottom: 16 }}>
+                You don’t have enough SOL to mint.<br />
+                Please top up at least <strong>0.02 SOL</strong> and try again.
+              </p>
+              <button
+                onClick={() => setShowPopup(false)}
+                style={{
+                  background: "#00c2a8",
+                  border: "none",
+                  color: "#000",
+                  padding: "8px 14px",
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
-        {/* Toast notification */}
+        {/* Toast */}
         {toast && (
           <div
             style={{
