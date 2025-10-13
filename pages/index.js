@@ -44,6 +44,8 @@ function TokenizeClient() {
   const [loading, setLoading] = useState(false);
   const [explorerUrl, setExplorerUrl] = useState("");
   const [mintStatus, setMintStatus] = useState("");
+  const [mintAddress, setMintAddress] = useState("");
+
 
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
 
@@ -90,6 +92,8 @@ function TokenizeClient() {
         sellerFeeBasisPoints: 0,
         isMutable: false,
       });
+      // Save minted NFT address to display the token page link
+      setMintAddress(response.mintAddress.toBase58());
 
       const sig = response.signature;
       const url = `https://explorer.solana.com/tx/${sig}?cluster=mainnet`;
@@ -257,6 +261,20 @@ function TokenizeClient() {
               </a>
             </p>
           )}
+          {mintAddress && (
+          <a
+            href={`/token/${mintAddress}`}
+            style={{
+              marginTop: 8,
+              color: "#00ffcc",
+              textDecoration: "none",
+              fontWeight: 700,
+            }}
+          >
+            🔗 View your token page
+          </a>
+        )}
+
         </div>
 
         <footer
