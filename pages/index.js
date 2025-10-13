@@ -15,6 +15,8 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 
 import { Connection } from "@solana/web3.js";
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
+import SiteFooter from "../components/SiteFooter";
+import GA from "../components/GA";
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ||
@@ -51,7 +53,11 @@ function TokenizeClient() {
   const connection = useMemo(() => new Connection(RPC_URL, FINALITY), []);
 
   useEffect(() => {
+    document.body.style.overflow = "hidden"; // ✅ prevent vertical scroll
     fetch(`${API_BASE}/gm`).catch(() => {});
+    return () => {
+      document.body.style.overflow = ""; // reset on unmount
+    };
   }, []);
 
   const showToast = (msg) => {
@@ -73,7 +79,7 @@ function TokenizeClient() {
       }
 
       setLoading(true);
-      setMintStatus("🤖 TKNZ robots are preparing blocks for the chain...");
+      setMintStatus("🤖 TKNZFUN robots are preparing blocks for the chain...");
       setExplorerUrl("");
 
       const res = await fetch(`${API_BASE}/prepare-metadata`, {
@@ -146,7 +152,6 @@ function TokenizeClient() {
         return;
       }
 
-      // single consistent failure message
       setMintStatus("❌ Minting failed.");
     } finally {
       setLoading(false);
@@ -156,38 +161,25 @@ function TokenizeClient() {
   return (
     <>
       <Head>
-        <title>TKNZ — Tokenize Everything</title>
+        <title>TKNZFUN — Tokenize Everything</title>
         <meta
           name="description"
           content="Tokenize any text into an immutable NFT on Solana."
         />
       </Head>
 
-      <Script
-        src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP"
-        strategy="afterInteractive"
-      />
-      <Script id="google-analytics" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-2GPFP7E7CP');
-        `}
-      </Script>
+      <GA />
 
       <div
         style={{
           fontFamily: "Inter, sans-serif",
-          minHeight: "100vh",
           background: "#343541",
           color: "#fff",
+          height: "100vh", // ✅ fills viewport, no scroll
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
           alignItems: "center",
-          position: "relative",
-          padding: "24px 0",
+          justifyContent: "flex-start",
         }}
       >
         <div
@@ -202,11 +194,12 @@ function TokenizeClient() {
             borderRadius: 12,
             padding: 20,
             boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+            marginTop: 100,
           }}
         >
           <img
             src="/images/TKNZlogo.png"
-            alt="TKNZ Logo"
+            alt="TKNZFUN Logo"
             style={{
               width: 64,
               height: 64,
@@ -224,6 +217,7 @@ function TokenizeClient() {
           <p style={{ color: "#aaa", marginTop: -6, textAlign: "center" }}>
             Connect wallet, enter text, and mint an immutable token forever stored on Solana.
           </p>
+
           <textarea
             placeholder="Enter text to tokenize..."
             value={text}
@@ -241,9 +235,11 @@ function TokenizeClient() {
               fontSize: 14,
             }}
           />
+
           <p style={{ color: "#aaa", fontSize: 13, marginTop: -6 }}>
             Network cost: ~0.02 SOL (covers rent & fees)
           </p>
+
           <button
             onClick={handleTokenize}
             disabled={loading}
@@ -282,7 +278,9 @@ function TokenizeClient() {
           </a>
 
           {mintStatus && (
-            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>{mintStatus}</p>
+            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>
+              {mintStatus}
+            </p>
           )}
           {explorerUrl && (
             <p style={{ marginTop: 8, textAlign: "center" }}>
@@ -375,19 +373,18 @@ function TokenizeClient() {
           </div>
         )}
 
-        <footer
+        {/* Footer with consistent layout */}
+        <div
           style={{
-            textAlign: "center",
-            fontSize: 13,
-            color: "#888",
-            position: "absolute",
-            bottom: 16,
-            left: 0,
-            right: 0,
+            width: "100%",              // ✅ allow full-width footer grid
+            marginTop: "auto",          // pushes footer to bottom
+            display: "block",           // breaks flex center alignment
+            paddingBottom: 8,           // minimal breathing space
           }}
         >
-          Copyright © TKNZ FUN
-        </footer>
+          <SiteFooter />
+        </div>
+
       </div>
     </>
   );
