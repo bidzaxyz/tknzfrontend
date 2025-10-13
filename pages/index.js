@@ -138,33 +138,6 @@ function TokenizeClient() {
 
   return (
     <>
-      {/* ✅ Meta + Google Analytics */}
-      <Head>
-        <title>TKNZ — Tokenize Everything</title>
-        <meta name="title" content="TKNZ — Tokenize Everything" />
-        <meta
-          name="description"
-          content="Platform for fun tokenizations on Solana Blockchain. Tokenize any text into an immutable NFT that will live forever."
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://tknz.bidza.xyz/" />
-        <meta property="og:title" content="TKNZ — Tokenize Everything" />
-        <meta
-          property="og:description"
-          content="Turn your words into on-chain collectibles. Free, immutable, and forever on Solana."
-        />
-        <meta property="og:image" content="/images/ogimage.png" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content="https://tknz.bidza.xyz/" />
-        <meta name="twitter:title" content="TKNZ — Tokenize Everything" />
-        <meta
-          name="twitter:description"
-          content="Fun tokenizations platform that runs on Solana."
-        />
-        <meta name="twitter:image" content="/images/ogimage.png" />
-        <link rel="icon" href="/images/TKNZlogo.png" />
-      </Head>
-
       {/* ✅ Google Tag */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP"
@@ -223,10 +196,10 @@ function TokenizeClient() {
           </div>
 
           <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
-            🧠 Tokenized Text
+            Tokenize Text on Solana
           </h1>
           <p style={{ color: "#aaa", marginTop: -6, textAlign: "center" }}>
-            Connect wallet, enter text, mint an NFT on Solana.
+            Connect wallet, enter text, mint an NFT on Solana. 
           </p>
 
           <textarea
