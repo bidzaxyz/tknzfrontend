@@ -9,10 +9,10 @@ import {
 import {
   WalletModalProvider,
   WalletMultiButton,
+  useWalletModal,
 } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
-
 import { Connection } from "@solana/web3.js";
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
 
@@ -36,10 +36,40 @@ async function waitForFinalization(connection, sig, { tries = 15, delay = 2000 }
   return false;
 }
 
+// ✅ Custom Phantom-only button
+function PhantomOnlyButton() {
+  const { visible, setVisible } = useWalletModal();
+  const wallet = useWallet();
+
+  return (
+    <button
+      onClick={() => {
+        // Only allow Phantom
+        if (typeof window !== "undefined" && window.solana?.isPhantom) {
+          setVisible(true);
+        } else {
+          alert("❌ Please install or use the Phantom wallet to continue.");
+        }
+      }}
+      disabled={wallet.connecting}
+      style={{
+        background: "#00c2a8",
+        color: "#111",
+        border: "none",
+        borderRadius: 10,
+        padding: "10px 18px",
+        fontWeight: 700,
+        cursor: "pointer",
+      }}
+    >
+      {wallet.connected ? "Connected ✅" : "Connect Phantom Wallet"}
+    </button>
+  );
+}
+
 function TokenizeClient() {
   const wallet = useWallet();
   const { connected, publicKey } = wallet;
-
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [explorerUrl, setExplorerUrl] = useState("");
@@ -68,23 +98,17 @@ function TokenizeClient() {
       setMintStatus("🤖 TKNZ robots are preparing blocks for the chain...");
       setExplorerUrl("");
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 60000);
-
       const res = await fetch(`${API_BASE}/prepare-metadata`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
         body: JSON.stringify({
           wallet_address: publicKey.toBase58(),
           text_content: trimmed,
         }),
-      }).finally(() => clearTimeout(timeout));
+      });
 
       if (!res.ok) throw new Error(`Metadata API failed: ${await res.text()}`);
       const { metadata_uri, trimmed_name } = await res.json();
-      if (!metadata_uri || !trimmed_name)
-        throw new Error("Invalid metadata response.");
 
       setMintStatus("🔗 Metadata ready, awaiting wallet approval...");
       const mx = Metaplex.make(connection).use(walletAdapterIdentity(wallet));
@@ -99,33 +123,21 @@ function TokenizeClient() {
 
       const sig = response.signature;
       const url = `https://explorer.solana.com/tx/${sig}?cluster=mainnet`;
-
       setMintStatus("⌛ Waiting for Solana finalization...");
       await wait(1800);
       const finalized = await waitForFinalization(connection, sig);
 
-      if (finalized)
-        setMintStatus("✅ Finalized on Solana! Check your wallet.");
-      else
-        setMintStatus("ℹ️ Submitted! If not visible yet, check again soon.");
+      setMintStatus(
+        finalized
+          ? "✅ Finalized on Solana! Check your wallet."
+          : "ℹ️ Submitted! If not visible yet, check again soon."
+      );
 
       setExplorerUrl(url);
     } catch (err) {
-      const msg = String(err?.message || err);
       console.error("❌ Minting failed:", err);
-
-      if (msg.includes("already been processed")) {
-        setMintStatus("✅ Transaction already confirmed!");
-        alert("NFT minted successfully (duplicate TX ignored).");
-        return;
-      } else if (msg.includes("AbortError")) {
-        setMintStatus("⚠️ Backend took too long to respond. Try again shortly.");
-        alert("Backend may still be waking up — please try again in 10 seconds.");
-        return;
-      }
-
+      alert(`Minting failed: ${err.message || err}`);
       setMintStatus("❌ Minting failed.");
-      alert(`Minting failed: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -135,17 +147,10 @@ function TokenizeClient() {
     <>
       <Head>
         <title>TKNZ — Tokenize Everything</title>
-        <meta name="title" content="TKNZ — Tokenize Everything" />
-        <meta
-          name="description"
-          content="Turn any text into an immutable Token on Solana blockchain."
-        />
+        <meta name="description" content="Tokenize any text into an immutable NFT on Solana." />
       </Head>
 
-      <Script
-        src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP"
-        strategy="afterInteractive"
-      />
+      <Script src="https://www.googletagmanager.com/gtag/js?id=G-2GPFP7E7CP" strategy="afterInteractive" />
       <Script id="google-analytics" strategy="afterInteractive">
         {`
           window.dataLayer = window.dataLayer || [];
@@ -155,7 +160,6 @@ function TokenizeClient() {
         `}
       </Script>
 
-      {/* ✅ Main layout */}
       <div
         style={{
           fontFamily: "Inter, sans-serif",
@@ -167,45 +171,29 @@ function TokenizeClient() {
           justifyContent: "center",
           alignItems: "center",
           position: "relative",
-          padding: "24px 0",
         }}
       >
-        {/* Center box */}
         <div
           style={{
             width: 360,
             maxWidth: "90vw",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            alignItems: "center",
             background: "#111",
             borderRadius: 12,
             padding: 20,
             boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
           }}
         >
-          <img
-            src="/images/TKNZlogo.png"
-            alt="TKNZ Logo"
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: "12px",
-              alignSelf: "flex-start",
-              marginBottom: 4,
-            }}
-          />
+          <img src="/images/TKNZlogo.png" alt="TKNZ Logo" style={{ width: 64, height: 64 }} />
 
-          <div style={{ alignSelf: "flex-end" }}>
-            <WalletMultiButton />
-          </div>
+          <PhantomOnlyButton />
 
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
-            Tokenize Text on Solana
-          </h1>
-          <p style={{ color: "#aaa", marginTop: -6, textAlign: "center" }}>
-            Connect wallet, enter text, and mint an immutable token forever stored on Solana.
+          <h1 style={{ fontSize: 22, fontWeight: 700 }}>Tokenize Text on Solana</h1>
+          <p style={{ color: "#aaa", textAlign: "center", marginTop: -6 }}>
+            Connect your Phantom wallet, enter text, and mint a token forever on Solana.
           </p>
 
           <textarea
@@ -215,14 +203,11 @@ function TokenizeClient() {
             style={{
               width: "100%",
               height: 120,
-              padding: 12,
+              backgroundColor: "#161616",
               borderRadius: 10,
               border: "1px solid #222",
-              outline: "none",
-              resize: "vertical",
-              backgroundColor: "#161616",
               color: "#fff",
-              fontSize: 14,
+              padding: 12,
             }}
           />
 
@@ -232,56 +217,23 @@ function TokenizeClient() {
             style={{
               width: "100%",
               backgroundColor: loading ? "#444" : "#00c2a8",
-              color: "#0b0b0b",
-              padding: "12px 16px",
-              borderRadius: 10,
+              color: "#111",
               border: "none",
-              cursor: loading ? "default" : "pointer",
+              borderRadius: 10,
+              padding: "12px 16px",
               fontWeight: 800,
-              letterSpacing: 0.3,
+              cursor: loading ? "default" : "pointer",
             }}
           >
             {loading ? "Minting..." : "Tokenize"}
           </button>
 
-          <a
-            href="https://x.com/tknzfuncom"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              color: "#1DA1F2",
-              marginTop: 18,
-              textDecoration: "none",
-              fontSize: 14,
-            }}
-          >
-            <img
-              src="/images/twitter.svg"
-              alt="Twitter"
-              style={{ width: 18, height: 18 }}
-            />
-            <span>Follow @tknzfuncom</span>
-          </a>
-
-          {mintStatus && (
-            <p style={{ color: "#00d1ff", fontSize: 14, marginTop: 8 }}>
-              {mintStatus}
-            </p>
-          )}
+          {mintStatus && <p style={{ color: "#00d1ff", fontSize: 14 }}>{mintStatus}</p>}
 
           {explorerUrl && (
             <p style={{ marginTop: 8, textAlign: "center" }}>
               ✅ View your transaction on{" "}
-              <a
-                href={explorerUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: "#00d1ff" }}
-              >
+              <a href={explorerUrl} target="_blank" rel="noreferrer" style={{ color: "#00d1ff" }}>
                 Solana Explorer
               </a>
             </p>
@@ -290,13 +242,12 @@ function TokenizeClient() {
 
         <footer
           style={{
-            textAlign: "center",
-            fontSize: 13,
-            color: "#888",
             position: "absolute",
             bottom: 16,
-            left: 0,
-            right: 0,
+            fontSize: 13,
+            color: "#888",
+            textAlign: "center",
+            width: "100%",
           }}
         >
           Copyright © TKNZ FUN
@@ -315,24 +266,9 @@ function TokenizeApp() {
 
 export default function HomePage() {
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
-
-  // ⚠️ If user connects wrong wallet (like MetaMask)
-  const handleWalletError = (error) => {
-    const msg = String(error?.message || "");
-    if (
-      msg.includes("ethereum") ||
-      msg.includes("EVM") ||
-      msg.toLowerCase().includes("metamask")
-    ) {
-      alert("❌ Please use a Solana-compatible wallet such as Phantom.");
-    } else {
-      console.error("Wallet error:", error);
-    }
-  };
-
   return (
     <ConnectionProvider endpoint={RPC_URL}>
-      <WalletProvider wallets={wallets} autoConnect onError={handleWalletError}>
+      <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           <TokenizeApp />
         </WalletModalProvider>
