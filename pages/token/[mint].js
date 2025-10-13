@@ -150,7 +150,7 @@ export default function TokenPage({ nftData }) {
                   </button>
                   <a
                     href={`https://x.com/intent/tweet?text=${encodeURIComponent(
-                      `Check out this tokenized text NFT on Solana — ${url}`
+                      `${url}`
                     )}`}
                     target="_blank"
                     rel="noreferrer"
