@@ -1,5 +1,4 @@
 import Head from "next/head";
-import Script from "next/script";
 import { useEffect, useMemo, useState } from "react";
 import {
   ConnectionProvider,
@@ -134,46 +133,40 @@ function TokenizeClient() {
       });
       const mintTx = await builder.toTransaction(connection);
 
-      // ✅ Ensure all Metaplex-generated keypairs sign this transaction
-// --- c) same blockhash + fee payer (set BEFORE signing)
-const { blockhash } = await connection.getLatestBlockhash();
-feeTx.feePayer = publicKey;
-mintTx.feePayer = publicKey;
-feeTx.recentBlockhash = blockhash;
-mintTx.recentBlockhash = blockhash;
+      // ✅ Ensure same blockhash + fee payer (set BEFORE signing)
+      const { blockhash } = await connection.getLatestBlockhash();
+      feeTx.feePayer = publicKey;
+      mintTx.feePayer = publicKey;
+      feeTx.recentBlockhash = blockhash;
+      mintTx.recentBlockhash = blockhash;
 
-// ✅ Now safely partial sign
-const signers = builder.getSigners();
-signers
-  .filter((s) => s?.secretKey)
-  .forEach((s) => {
-    try {
-      const kp = Keypair.fromSecretKey(s.secretKey);
-      mintTx.partialSign(kp);
-    } catch (e) {
-      console.warn("Failed to partialSign:", e);
-    }
-  });
+      // ✅ Metaplex-generated keypairs partial sign
+      const signers = builder.getSigners();
+      signers
+        .filter((s) => s?.secretKey)
+        .forEach((s) => {
+          try {
+            const kp = Keypair.fromSecretKey(s.secretKey);
+            mintTx.partialSign(kp);
+          } catch (e) {
+            console.warn("Failed to partialSign:", e);
+          }
+        });
 
-
-      // 3️⃣ One wallet popup to sign both
+      // 3️⃣ One Phantom popup: sign + send both
       setMintStatus("💸 Approve fee + mint in one step...");
-      const [signedFeeTx, signedMintTx] = await wallet.signAllTransactions([
+      const provider = window.solana;
+      const { signatures } = await provider.signAndSendAllTransactions([
         feeTx,
         mintTx,
       ]);
 
-      // 4️⃣ Send fee first, then mint
-      setMintStatus("💸 Sending service fee...");
-      const feeSig = await connection.sendRawTransaction(signedFeeTx.serialize());
-      await waitForFinalization(connection, feeSig);
-
-      setMintStatus("🪙 Minting NFT...");
-      const mintSig = await connection.sendRawTransaction(signedMintTx.serialize());
-      await waitForFinalization(connection, mintSig);
+      // 4️⃣ Wait for confirmations
+      await waitForFinalization(connection, signatures[0]);
+      await waitForFinalization(connection, signatures[1]);
 
       // 5️⃣ Done
-      const url = `https://explorer.solana.com/tx/${mintSig}?cluster=mainnet`;
+      const url = `https://explorer.solana.com/tx/${signatures[1]}?cluster=mainnet`;
       setExplorerUrl(url);
       showToast("✅ NFT minted successfully!");
 
